@@ -45,12 +45,22 @@ export const App = {
 
   registerSW() {
     if (!('serviceWorker' in navigator)) return;
+    // Recarga automática (una vez) cuando un SW nuevo toma el control.
+    const hadController = !!navigator.serviceWorker.controller;
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing || !hadController) return;
+      refreshing = true; location.reload();
+    });
     navigator.serviceWorker.register('sw.js').then((reg) => {
+      // busca updates al abrir
+      reg.update?.();
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         nw && nw.addEventListener('statechange', () => {
           if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            toast('Nueva versión lista', { actionLabel: 'Actualizar', onAction: () => { nw.postMessage('skip-waiting'); location.reload(); } });
+            toast('Actualizando a la última versión…');
+            nw.postMessage('skip-waiting');
           }
         });
       });

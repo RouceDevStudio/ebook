@@ -463,13 +463,23 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 
 .reader-page-host { position: relative; flex: 1; overflow: hidden; }
 .reader-content {
-  position: absolute; inset: 0; padding: env(safe-area-inset-top) var(--r-margin, 24px) env(safe-area-inset-bottom);
-  overflow: hidden; font-size: var(--r-fs, 19px); line-height: var(--r-lh, 1.65);
+  position: absolute; inset: 0;
+  padding: calc(env(safe-area-inset-top) + 38px) var(--r-margin, 24px) calc(env(safe-area-inset-bottom) + 32px);
+  overflow: hidden; font-size: var(--r-fs, 19px); line-height: var(--r-lh, 1.7);
   font-family: var(--r-font, Georgia, "Times New Roman", serif);
   letter-spacing: var(--r-ls, 0); word-spacing: var(--r-ws, 0);
   text-align: var(--r-align, justify); hyphens: auto; column-gap: 0;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
-.reader-content p { margin: 0 0 var(--r-pspace, 1em); text-indent: var(--r-indent, 0); }
+.reader-content p { margin: 0 0 var(--r-pspace, 1em); text-indent: var(--r-indent, 0); orphans: 2; widows: 2; }
+/* Capitular en el primer párrafo de cada capítulo (solo reflow) */
+.reader-content:not(.media) > section > p:first-of-type::first-letter {
+  font-size: 3.1em; line-height: .78; float: left; padding: .02em .1em 0 0; font-weight: 600;
+  color: color-mix(in srgb, var(--r-fg) 82%, var(--coral)); font-family: Georgia, "Times New Roman", serif;
+}
+.reader-content h1, .reader-content h2 { text-align: left; font-weight: 700; margin: 0 0 .6em; letter-spacing: -.01em; }
+.reader-content section { break-before: column; }
+.reader-content section:first-child { break-before: auto; }
 .reader-content h1, .reader-content h2, .reader-content h3 { line-height: 1.25; }
 .reader-content img { max-width: 100%; height: auto; margin: 1em auto; border-radius: 4px; }
 .reader-content.paged { column-width: var(--col-w); column-fill: auto; height: 100%; }
@@ -490,11 +500,31 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 .page-flip .pf-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0) 60%, rgba(0,0,0,.18)); opacity: 0; }
 
 /* Reader chrome (top/bottom bars) */
-.reader-chrome { position: absolute; left: 0; right: 0; z-index: 10; transition: transform .3s var(--ease), opacity .3s; }
-.reader-top { top: 0; padding: calc(var(--safe-top) + 6px) 8px 8px; background: linear-gradient(180deg, color-mix(in srgb, var(--r-ui) 92%, transparent), transparent); display: flex; align-items: center; gap: 4px; }
-.reader-top.hide { transform: translateY(-100%); opacity: 0; }
-.reader-bottom { bottom: 0; padding: 10px 16px calc(var(--safe-bottom) + 12px); background: linear-gradient(0deg, color-mix(in srgb, var(--r-ui) 94%, transparent), transparent); }
-.reader-bottom.hide { transform: translateY(100%); opacity: 0; }
+.reader-chrome { position: absolute; left: 0; right: 0; z-index: 10; transition: transform .34s var(--ease), opacity .34s; }
+.reader-top { top: 0; padding: calc(var(--safe-top) + 8px) 6px 10px; display: flex; align-items: center; gap: 4px;
+  background: color-mix(in srgb, var(--r-ui) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(16px); -webkit-backdrop-filter: saturate(1.4) blur(16px);
+  border-bottom: 1px solid color-mix(in srgb, var(--r-fg) 10%, transparent);
+  box-shadow: 0 6px 24px -18px rgba(0,0,0,.5); }
+.reader-top.hide { transform: translateY(-101%); opacity: 0; }
+.reader-bottom { bottom: 0; padding: 12px 16px calc(var(--safe-bottom) + 14px);
+  background: color-mix(in srgb, var(--r-ui) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(16px); -webkit-backdrop-filter: saturate(1.4) blur(16px);
+  border-top: 1px solid color-mix(in srgb, var(--r-fg) 10%, transparent);
+  box-shadow: 0 -6px 24px -18px rgba(0,0,0,.5); }
+.reader-bottom.hide { transform: translateY(101%); opacity: 0; }
+
+/* Indicador de página persistente (estilo libro) */
+.reader-pageinfo { position: absolute; left: 0; right: 0; bottom: calc(var(--safe-bottom) + 7px); z-index: 6;
+  text-align: center; font-size: 11px; letter-spacing: .6px; font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--r-fg) 48%, transparent); pointer-events: none; transition: opacity .3s;
+  font-family: var(--font); }
+.reader-pageinfo.hide { opacity: 0; }
+/* Encabezado de lectura sutil (título arriba, difuminado) */
+.reader-runhead { position: absolute; top: calc(var(--safe-top) + 6px); left: 0; right: 0; z-index: 6;
+  text-align: center; font-size: 11px; letter-spacing: .4px; color: color-mix(in srgb, var(--r-fg) 40%, transparent);
+  pointer-events: none; transition: opacity .3s; padding: 0 40px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font); }
+.reader-runhead.hide { opacity: 0; }
 .reader-top .r-title { flex: 1; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--r-fg); }
 .reader-top .icon-btn { color: var(--r-fg); }
 .reader-progress { display: flex; align-items: center; gap: 10px; color: var(--r-fg); }
@@ -511,8 +541,10 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 
 /* PDF / cómic — modo paginado (una página por pantalla) */
 .reader-content.media { padding: 0; display: flex; }
-.rpage { flex: 0 0 auto; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--r-bg); }
-.rpage img { display: block; margin: auto; box-shadow: 0 2px 16px rgba(0,0,0,.25); background: #fff; }
+.rpage { flex: 0 0 auto; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: var(--r-bg); padding: calc(env(safe-area-inset-top) + 14px) 12px calc(env(safe-area-inset-bottom) + 22px); box-sizing: border-box; }
+.rpage img { display: block; margin: auto; max-width: 100%; max-height: 100%; border-radius: 4px;
+  box-shadow: 0 6px 30px -8px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.18); background: #fff; }
 /* PDF / comic canvas mode (legacy continuo, por si se reutiliza) */
 .reader-canvas-host { position: absolute; inset: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0; -webkit-overflow-scrolling: touch; }
 .reader-canvas-host canvas, .reader-canvas-host img { max-width: 100%; box-shadow: var(--shadow); background: #fff; }

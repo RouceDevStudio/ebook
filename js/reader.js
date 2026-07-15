@@ -41,6 +41,7 @@ export async function openReader(bookId, App) {
     pagesReadCount: 0, startPercent: progress.percent || 0,
   };
   host.dataset.rtheme = R.settings.readerTheme;
+  setReaderThemeColor(R.settings.readerTheme);
 
   models.startSession(bookId, progress.percent || 0);
   wakeLock(true);
@@ -84,6 +85,8 @@ function chrome(book) {
   </div>
   <div class="reader-overlay dim-layer" id="rDim"></div>
   <div class="reader-overlay warm-layer" id="rWarm"></div>
+  <div class="reader-runhead hide" id="rRunhead">${esc(book.title)}</div>
+  <div class="reader-pageinfo" id="rPageInfo"></div>
   <div class="reader-chrome reader-bottom" id="rBottom">
     <div class="reader-progress"><input type="range" id="rSlider" min="0" max="1000" value="0"><span class="pct" id="rPct">0%</span></div>
     <div class="reader-toolbar">
@@ -137,6 +140,7 @@ function buildReflowReader(progress) {
   bindChrome(() => rebuildReflow(progress));
   bindReaderGestures(hostEl, isScroll);
   bindSlider(isScroll, hostEl);
+  startImmersive();
 }
 
 function setupPaged(hostEl, content, progress) {
@@ -252,8 +256,11 @@ function updateProgressUI() {
   if (!R) return;
   const pct = currentPercent();
   const pctEl = document.getElementById('rPct'); const slider = document.getElementById('rSlider');
-  if (pctEl) pctEl.textContent = R.settings.pageAnimation === 'scroll' ? Math.round(pct * 100) + '%' : `${R.page + 1}/${R.totalPages} · ${Math.round(pct * 100)}%`;
+  const scroll = !R.mediaPaged && R.settings.pageAnimation === 'scroll';
+  if (pctEl) pctEl.textContent = scroll ? Math.round(pct * 100) + '%' : `${R.page + 1}/${R.totalPages} · ${Math.round(pct * 100)}%`;
   if (slider) slider.value = Math.round(pct * 1000);
+  const info = document.getElementById('rPageInfo');
+  if (info) info.textContent = scroll ? `${Math.round(pct * 100)}%` : `${R.page + 1} · ${R.totalPages}`;
 }
 
 function rebuildReflow(progress) {
@@ -306,10 +313,34 @@ function bindReaderGestures(hostEl, isScroll) {
   hostEl.addEventListener('touchend', () => setTimeout(onSelection, 10));
 }
 
-function toggleChrome() {
-  R.chromeVisible = !R.chromeVisible;
-  document.getElementById('rTop')?.classList.toggle('hide', !R.chromeVisible);
-  document.getElementById('rBottom')?.classList.toggle('hide', !R.chromeVisible);
+function toggleChrome(force) {
+  if (R._autohide) { clearTimeout(R._autohide); R._autohide = null; }
+  R.chromeVisible = force === undefined ? !R.chromeVisible : force;
+  const vis = R.chromeVisible;
+  document.getElementById('rTop')?.classList.toggle('hide', !vis);
+  document.getElementById('rBottom')?.classList.toggle('hide', !vis);
+  // El indicador persistente se oculta cuando la barra inferior está visible (evita solaparse)
+  document.getElementById('rPageInfo')?.classList.toggle('hide', vis);
+  document.getElementById('rRunhead')?.classList.toggle('hide', vis);
+}
+// Modo inmersivo: muestra los controles un momento al abrir y luego los oculta.
+function startImmersive() {
+  R.chromeVisible = true;
+  if (R._autohide) clearTimeout(R._autohide);
+  R._autohide = setTimeout(() => { if (R && R.chromeVisible) toggleChrome(false); }, 2600);
+}
+
+const READER_BG = { white: '#ffffff', sepia: '#f4ecd8', gray: '#33363b', amoled: '#000000', black: '#121212' };
+let _savedThemeColors = null;
+function setReaderThemeColor(rtheme) {
+  const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
+  if (!_savedThemeColors) _savedThemeColors = metas.map((m) => ({ m, c: m.getAttribute('content'), media: m.getAttribute('media') }));
+  metas.forEach((m) => { m.removeAttribute('media'); m.setAttribute('content', READER_BG[rtheme] || '#f4ecd8'); });
+}
+function restoreThemeColor() {
+  if (!_savedThemeColors) return;
+  _savedThemeColors.forEach(({ m, c, media }) => { if (c != null) m.setAttribute('content', c); if (media) m.setAttribute('media', media); });
+  _savedThemeColors = null;
 }
 function toggleFocus() { R.host.classList.toggle('focus'); toast(R.host.classList.contains('focus') ? 'Modo concentración' : 'Modo normal'); }
 
@@ -358,6 +389,7 @@ function setupMediaPaged(progress, renderCell) {
   R._resize = debounce(layout, 200); window.addEventListener('resize', R._resize);
   ensureCells();
   updateProgressUI();
+  startImmersive();
 }
 function ensureCells() {
   if (!R || !R.renderCell) return;
@@ -473,7 +505,7 @@ function openThemePicker() {
   rSheet('Tema del lector', `<div class="swatches" style="justify-content:center;margin:20px 0">
     ${themes.map(([k, bg, fg]) => `<button class="swatch ${R.settings.readerTheme === k ? 'on' : ''}" data-t="${k}" style="background:${bg};color:${fg};border-color:${R.settings.readerTheme === k ? 'var(--coral)' : 'rgba(128,128,128,.4)'}">Aa</button>`).join('')}</div>
     <p class="muted center" style="font-size:12px">Sepia · Blanco · Gris · Negro · AMOLED</p>`);
-  document.querySelectorAll('#rSheet [data-t]').forEach((b) => b.onclick = () => { R.settings.readerTheme = b.dataset.t; R.host.dataset.rtheme = b.dataset.t; persistReaderSetting('readerTheme', b.dataset.t); closeRSheet(); });
+  document.querySelectorAll('#rSheet [data-t]').forEach((b) => b.onclick = () => { R.settings.readerTheme = b.dataset.t; R.host.dataset.rtheme = b.dataset.t; setReaderThemeColor(b.dataset.t); persistReaderSetting('readerTheme', b.dataset.t); closeRSheet(); });
 }
 
 function openBrightness() {
@@ -637,6 +669,8 @@ async function closeReader() {
   await models.endSession(currentPercent(), R.pagesReadCount);
   window.removeEventListener('keydown', R._key);
   window.removeEventListener('resize', R._resize);
+  if (R._autohide) clearTimeout(R._autohide);
+  restoreThemeColor();
   wakeLock(false);
   try { R.doc.pdfDoc && R.doc.pdfDoc.destroy(); } catch (_) {}
   (R.doc.resources || new Map()).forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
