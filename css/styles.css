@@ -507,10 +507,51 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 .reader[data-rtheme="amoled"]{ --r-bg: #000000; --r-fg: #c6c4b6; --r-ui: #080806; }
 .reader[data-rtheme="black"] { --r-bg: #16160f; --r-fg: #cfccbf; --r-ui: #1d1d14; }
 
-.reader-page-host { position: relative; flex: 1; overflow: hidden; }
+/* ── Look de LIBRO real: escritorio + hoja de papel + lomo ── */
+.reader { --r-desk-m: 13px; --r-paper: var(--r-bg);
+  --r-desk-bg: radial-gradient(150% 130% at 50% -12%, color-mix(in srgb, var(--r-bg) 95%, #000) 0%, color-mix(in srgb, var(--r-bg) 80%, #000) 58%, color-mix(in srgb, var(--r-bg) 66%, #000) 100%);
+  --r-gutter: rgba(45,32,12,.22); --r-vig: rgba(45,32,12,.09); --r-paper-hi: rgba(255,251,242,.55); --r-edge: rgba(60,45,20,.16); }
+.reader[data-rtheme="white"] { --r-gutter: rgba(35,30,18,.17); --r-vig: rgba(35,30,18,.055); --r-paper-hi: rgba(255,255,255,.7); --r-edge: rgba(40,35,22,.11); }
+.reader[data-rtheme="sepia"] { --r-gutter: rgba(96,66,22,.22); --r-vig: rgba(96,66,22,.085); --r-paper-hi: rgba(255,250,235,.6); --r-edge: rgba(96,66,22,.16); }
+.reader[data-rtheme="gray"]  { --r-paper: #383b32; --r-desk-bg: radial-gradient(150% 130% at 50% -12%, #2b2e26 0%, #212319 68%, #191b12 100%); --r-gutter: rgba(0,0,0,.5); --r-vig: rgba(0,0,0,.22); --r-paper-hi: rgba(255,255,255,.06); --r-edge: rgba(0,0,0,.4); }
+.reader[data-rtheme="black"] { --r-paper: #1a1a11; --r-desk-bg: radial-gradient(150% 130% at 50% -12%, #101009 0%, #0a0a06 68%, #050503 100%); --r-gutter: rgba(0,0,0,.6); --r-vig: rgba(0,0,0,.3); --r-paper-hi: rgba(255,255,255,.05); --r-edge: rgba(0,0,0,.5); }
+.reader[data-rtheme="amoled"]{ --r-paper: #0b0b0b; --r-desk-bg: #000; --r-gutter: rgba(0,0,0,.8); --r-vig: rgba(0,0,0,.5); --r-paper-hi: rgba(255,255,255,.06); --r-edge: rgba(255,255,255,.05); }
+@media (min-width: 820px) { .reader { --r-desk-m: clamp(18px, 3.4vw, 52px); } }
+
+.reader-page-host { position: relative; flex: 1; overflow: hidden; background: var(--r-desk-bg, transparent); perspective: 2200px; }
+
+/* Capa-libro: hoja(s) de papel con canto, sombra y lomo central */
+.reader-book { position: absolute; pointer-events: none; }
+.reader-book.paper {
+  z-index: 0;
+  top: calc(env(safe-area-inset-top) + var(--r-desk-m)); bottom: calc(env(safe-area-inset-bottom) + var(--r-desk-m));
+  left: var(--r-desk-m); right: var(--r-desk-m);
+  background: var(--r-paper, var(--r-bg)); border-radius: 6px;
+  box-shadow: 0 0 0 .5px var(--r-edge), 0 1px 0 var(--r-paper-hi) inset,
+    0 24px 50px -22px rgba(0,0,0,.55), 0 8px 20px -12px rgba(0,0,0,.4);
+}
+/* Grosor de canto en los bordes exteriores + leve viñeta arriba/abajo */
+.reader-book.paper::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background:
+    linear-gradient(90deg, var(--r-edge) 0, transparent 5px),
+    linear-gradient(270deg, var(--r-edge) 0, transparent 5px),
+    linear-gradient(180deg, var(--r-vig) 0, transparent 15px),
+    linear-gradient(0deg, var(--r-vig) 0, transparent 17px);
+}
+/* Lomo / pliegue central — solo en horizontal (dos hojas pegadas) */
+.reader-book.spread::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
+  width: clamp(64px, 15%, 240px); transform: translateX(-50%); pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent calc(50% - 1px), var(--r-paper-hi) 50%, transparent calc(50% + 1px)),
+    linear-gradient(90deg, transparent 0, var(--r-vig) 30%, var(--r-gutter) 46%,
+      color-mix(in srgb, var(--r-gutter), #000 45%) 50%, var(--r-gutter) 54%, var(--r-vig) 70%, transparent 100%);
+}
+.reader-book.media { z-index: 4; inset: 0; }
 .reader-content {
   position: absolute; inset: 0;
-  padding: calc(env(safe-area-inset-top) + 38px) var(--r-margin, 24px) calc(env(safe-area-inset-bottom) + 32px);
+  padding: calc(env(safe-area-inset-top) + var(--r-desk-m, 0px) + 30px) var(--r-margin, 24px) calc(env(safe-area-inset-bottom) + var(--r-desk-m, 0px) + 26px);
   overflow: hidden; font-size: var(--r-fs, 19px); line-height: var(--r-lh, 1.7);
   font-family: var(--r-font, "Literata", Georgia, "Times New Roman", serif);
   letter-spacing: var(--r-ls, 0); word-spacing: var(--r-ws, 0);
@@ -539,10 +580,10 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 .page-flip {
   position: absolute; inset: 0; z-index: 5; pointer-events: none;
   transform-style: preserve-3d; transform-origin: left center; will-change: transform;
-  background: var(--r-bg); box-shadow: 0 0 40px rgba(0,0,0,.25);
+  background: var(--r-paper, var(--r-bg)); box-shadow: 0 0 40px rgba(0,0,0,.25);
   backface-visibility: hidden;
 }
-.page-flip .pf-face { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; padding: env(safe-area-inset-top) var(--r-margin,24px) env(safe-area-inset-bottom); }
+.page-flip .pf-face { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; padding: 0; }
 .page-flip .pf-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0) 60%, rgba(0,0,0,.18)); opacity: 0; }
 
 /* Reader chrome (top/bottom bars) */
@@ -734,9 +775,8 @@ input[type="range"]::-moz-range-thumb { background: var(--accent); }
 .coral-say .av { background: linear-gradient(150deg, var(--accent), var(--accent-soft)); }
 .coral-say .txt b { color: var(--accent-deep); }
 
-/* Doble página en horizontal (visor de medios) */
+/* Doble página en horizontal (visor de medios): dos hojas pegadas al lomo */
 .reader-content.media.spread .rpage { right: auto; width: 50%; }
-.reader-content.media.spread .rpage[data-i]:nth-child(even) { box-shadow: inset 1px 0 0 color-mix(in srgb, var(--r-fg) 8%, transparent); }
 
 /* ══════════════════════════════════════════════════════════════
    Bloqueo de orientación por software — mantiene la app VERTICAL

@@ -75,6 +75,23 @@ function applyVars(el, s) {
   el.style.setProperty('--r-indent', s.textIndent + 'em');
 }
 
+/* Margen del "escritorio" (desde CSS) para alinear las columnas con las hojas. */
+function getDeskMargin(el) {
+  const v = parseFloat(getComputedStyle(el).getPropertyValue('--r-desk-m'));
+  return isNaN(v) ? 12 : v;
+}
+/* Capa decorativa que convierte la superficie en un LIBRO real:
+   hoja(s) de papel, sombra de canto, lomo central y pliegue en horizontal. */
+function syncReflowBook(hostEl, isScroll) {
+  let b = document.getElementById('rBook');
+  if (isScroll) { if (b) b.remove(); return; }
+  if (!b) {
+    b = document.createElement('div'); b.id = 'rBook'; b.className = 'reader-book paper';
+    const c = hostEl.querySelector('#rContent');
+    hostEl.insertBefore(b, c);   // detrás del texto (el contenido es transparente)
+  }
+}
+
 function chrome(book) {
   return `
   <div class="reader-chrome reader-top" id="rTop">
@@ -141,6 +158,7 @@ function buildReflowReader(progress) {
   content.querySelectorAll('a[href]').forEach((a) => a.removeAttribute('href')); // evita navegación externa
 
   const isScroll = R.settings.pageAnimation === 'scroll';
+  syncReflowBook(hostEl, isScroll);
   if (isScroll) {
     hostEl.style.overflowY = 'auto'; content.classList.remove('paged');
     content.style.position = 'static'; content.style.height = 'auto';
@@ -161,14 +179,23 @@ function setupPaged(hostEl, content, progress) {
   const layout = () => {
     const W = hostEl.clientWidth;
     const m = R.settings.margin;
-    const two = W > hostEl.clientHeight * 1.15;   // horizontal → dos columnas (libro abierto)
+    const two = isLandscape();                    // horizontal → libro abierto (dos hojas)
+    const desk = getDeskMargin(hostEl);           // margen de escritorio alrededor del libro
+    const pad = desk + m;                          // borde de hoja + margen de texto
     content.style.width = W + 'px';
     content.style.height = hostEl.clientHeight + 'px';
-    content.style.columnWidth = (two ? (W - 4 * m) / 2 : (W - 2 * m)) + 'px';
-    content.style.columnGap = (2 * m) + 'px';
-    content.style.paddingLeft = m + 'px';
-    content.style.paddingRight = m + 'px';
+    content.style.paddingLeft = pad + 'px';
+    content.style.paddingRight = pad + 'px';
+    if (two) {
+      // Dos columnas pegadas al lomo central: cada una cae sobre su hoja.
+      content.style.columnGap = (2 * m) + 'px';
+      content.style.columnWidth = ((W - 2 * pad - 2 * m) / 2) + 'px';
+    } else {
+      content.style.columnGap = '0px';
+      content.style.columnWidth = (W - 2 * pad) + 'px';
+    }
     content.style.setProperty('--r-margin', '0px');
+    document.getElementById('rBook')?.classList.toggle('spread', two);
     R.pageW = W;
     // recalcula tras layout
     requestAnimationFrame(() => {
@@ -308,6 +335,7 @@ function rebuildReflow(progress) {
   R.host.dataset.rtheme = R.settings.readerTheme;
   const isScroll = R.settings.pageAnimation === 'scroll';
   const hostEl = document.getElementById('rHost');
+  syncReflowBook(hostEl, isScroll);
   if (isScroll) { hostEl.style.overflowY = 'auto'; content.classList.remove('paged'); content.style.position = 'static'; content.style.transform = ''; content.style.height = 'auto'; }
   else if (R._layout) { hostEl.style.overflowY = 'hidden'; R._layout(); }
   applyBrightness();
@@ -409,6 +437,9 @@ function setupMediaPaged(progress, renderCell) {
   const hostEl = document.getElementById('rHost');
   const content = document.getElementById('rContent');
   content.style.position = 'absolute'; content.style.inset = '0';
+  // Lomo/pliegue central para que la doble página parezca un libro abierto.
+  const book = document.createElement('div'); book.id = 'rBook'; book.className = 'reader-book media';
+  hostEl.appendChild(book);   // por encima de las páginas (z-index en CSS)
   R.rendered = new Set();
   R.renderCell = renderCell;
   const applySpread = () => {
@@ -416,6 +447,7 @@ function setupMediaPaged(progress, renderCell) {
     if (sp !== R.spread) { R.rendered = new Set(); content.querySelectorAll('.rpage').forEach((c) => c.innerHTML = ''); }
     R.spread = sp;
     content.classList.toggle('spread', sp);
+    document.getElementById('rBook')?.classList.toggle('spread', sp);
     if (sp && R.page % 2 === 1) R.page--;   // alinea a página izquierda
   };
   const layout = () => { R.pageW = hostEl.clientWidth; applySpread(); setPageTransform(content, R.page); ensureCells(); updateProgressUI(); };
