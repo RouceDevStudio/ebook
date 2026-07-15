@@ -4,7 +4,7 @@
  * así que el SW solo cachea la carcasa de la app y assets.
  * Actualizaciones silenciosas: skipWaiting + clients.claim.
  */
-const VERSION = 'coral-v1.4.0';
+const VERSION = 'coral-v1.5.0';
 const SHELL_CACHE = `shell-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const COVER_CACHE = 'coral-covers';
@@ -45,7 +45,10 @@ const SHELL = [
   './js/vendor/pdf.worker.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/favicon.svg'
+  './icons/favicon.svg',
+  './fonts/inter.woff2',
+  './fonts/literata.woff2',
+  './fonts/literata-italic.woff2'
 ];
 
 self.addEventListener('install', (e) => {

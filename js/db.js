@@ -71,7 +71,7 @@ const _defaults = {
   fontSize: 19,
   lineHeight: 1.65,
   margin: 24,
-  fontFamily: 'Georgia, "Times New Roman", serif',
+  fontFamily: '"Literata", Georgia, "Times New Roman", serif',
   wordSpacing: 0,
   letterSpacing: 0,
   textAlign: 'justify',
@@ -81,7 +81,7 @@ const _defaults = {
   brightness: 1,
   warmth: 0,
   nightBrightness: false,
-  orientation: 'auto',          // auto|portrait|landscape|double
+  orientation: 'portrait',      // portrait|auto|landscape — bloqueo por defecto
   libView: 'grid',              // grid|list|shelf
   libSort: 'addedAt',
   libSortDir: 'desc',

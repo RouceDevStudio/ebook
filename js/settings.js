@@ -28,6 +28,8 @@ export async function render(container, App) {
       <div class="field"><label>Tamaño de letra · <span id="fsV">${settings.get('fontSize')}px</span></label><input type="range" id="setFs" min="12" max="34" value="${settings.get('fontSize')}"></div>
       <div class="field"><label>Animación de página</label><select id="setAnim">
         ${[['realistic','Libro real'],['slide','Deslizar'],['scroll','Continuo'],['none','Ninguna']].map(([v,l]) => `<option value="${v}" ${settings.get('pageAnimation')===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label>Orientación</label><select id="setOrient">
+        ${[['portrait','Vertical (bloqueada)'],['auto','Automática'],['landscape','Horizontal']].map(([v,l]) => `<option value="${v}" ${settings.get('orientation')===v?'selected':''}>${l}</option>`).join('')}</select></div>
       ${toggleRow('tapZones', 'Zonas táctiles', 'Toca los bordes para pasar página')}
       ${toggleRow('keepScreenOn', 'Mantener pantalla encendida', 'Evita que se apague mientras lees')}
     </div>
@@ -86,6 +88,7 @@ export async function render(container, App) {
   container.querySelector('#setRTheme').onchange = (e) => { settings.set('readerTheme', e.target.value); App.applyTheme(); };
   const fs = container.querySelector('#setFs'); fs.oninput = () => { container.querySelector('#fsV').textContent = fs.value + 'px'; }; fs.onchange = () => settings.set('fontSize', parseInt(fs.value, 10));
   container.querySelector('#setAnim').onchange = (e) => settings.set('pageAnimation', e.target.value);
+  container.querySelector('#setOrient').onchange = (e) => { settings.set('orientation', e.target.value); App.applyOrientation(); toast(e.target.value === 'portrait' ? 'Orientación bloqueada en vertical' : 'Orientación: ' + e.target.value); };
   const tts = container.querySelector('#setTts'); tts.oninput = () => { container.querySelector('#ttsV').textContent = (tts.value / 10) + '×'; }; tts.onchange = () => settings.set('ttsRate', tts.value / 10);
   // Coral
   container.querySelector('#saveCoral').onclick = () => { settings.set('coralUrl', container.querySelector('#setCoralUrl').value.trim()); settings.set('coralToken', container.querySelector('#setCoralToken').value.trim()); toast('Conexión Coral guardada'); render(container, App); };

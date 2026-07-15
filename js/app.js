@@ -29,6 +29,7 @@ export const App = {
     this.state.sortDir = settings.get('libSortDir');
     this.state.view3 = settings.get('libView');
     this.applyTheme();
+    this.applyOrientation();
     this.registerSW();
     this.bindChrome();
     await this.refresh();
@@ -74,6 +75,19 @@ export const App = {
     const rt = settings.get('readerTheme');
     document.body.dataset.readerTheme = rt;
     if (settings.get('dyslexia')) document.body.classList.add('dyslexia'); else document.body.classList.remove('dyslexia');
+  },
+
+  /* ── Orientación (evita rotación accidental) ── */
+  applyOrientation() {
+    const o = settings.get('orientation') || 'portrait';
+    try {
+      const so = screen.orientation;
+      if (so && so.lock) {
+        if (o === 'portrait') so.lock('portrait').catch(() => {});
+        else if (o === 'landscape') so.lock('landscape').catch(() => {});
+        else if (so.unlock) so.unlock();
+      }
+    } catch (_) {}
   },
 
   /* ── Datos ── */

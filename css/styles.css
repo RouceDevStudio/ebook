@@ -1,68 +1,99 @@
 /* ══════════════════════════════════════════════════════════════
-   Coral Reader — hoja de estilos
-   Diseño: Material 3 expresivo · mobile-first · AMOLED · minimal
+   Coral Reader — un santuario de lectura
+   Minimalismo cálido · oliva, bosque, papel · naturaleza sutil
    ══════════════════════════════════════════════════════════════ */
 
-:root {
-  --coral: #ff6f61;
-  --coral-deep: #e8564a;
-  --coral-soft: #ff9c8c;
-  --coral-ghost: rgba(255, 111, 97, 0.12);
-
-  --bg: #f7f5f2;
-  --bg-elev: #ffffff;
-  --bg-elev-2: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f0ece7;
-  --text: #1c1b1a;
-  --text-dim: #6b6864;
-  --text-faint: #9c9791;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.14);
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.18);
-  --nav-h: 64px;
-  --top-h: 56px;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", system-ui, sans-serif;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+@font-face {
+  font-family: "InterVar"; font-style: normal; font-weight: 100 900;
+  font-display: swap; src: url("../fonts/inter.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Literata"; font-style: normal; font-weight: 200 900;
+  font-display: swap; src: url("../fonts/literata.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Literata"; font-style: italic; font-weight: 200 900;
+  font-display: swap; src: url("../fonts/literata-italic.woff2") format("woff2");
 }
 
-/* Dark / AMOLED */
+:root {
+  /* Verde oliva (primario) · verde bosque (acciones) */
+  --accent: #7b845d;
+  --accent-deep: #40573f;
+  --accent-soft: #a3ac86;
+  --accent-ghost: rgba(123, 132, 93, 0.14);
+  --coral: var(--accent);
+  --coral-deep: var(--accent-deep);
+  --coral-soft: var(--accent-soft);
+  --coral-ghost: var(--accent-ghost);
+
+  /* Papel, blanco roto, piedra */
+  --bg: #f1ecdf;
+  --bg-elev: #faf7ee;
+  --bg-elev-2: #fcfaf3;
+  --surface: #faf7ee;
+  --surface-2: #e9e3d3;
+  --text: #302e26;
+  --text-dim: #6c675a;
+  --text-faint: #9c9684;
+  --border: rgba(58, 51, 34, 0.10);
+  --border-strong: rgba(58, 51, 34, 0.16);
+  --shadow: 0 1px 2px rgba(52, 46, 28, 0.04), 0 8px 24px -10px rgba(52, 46, 28, 0.14);
+  --shadow-lg: 0 18px 50px -12px rgba(40, 38, 24, 0.26);
+  --nav-h: 66px;
+  --top-h: 56px;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --font: "InterVar", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-read: "Literata", Georgia, "Times New Roman", serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --fog: rgba(123, 132, 93, 0.07);
+  --grain-opacity: 0.045;
+}
+
+/* Dark — negro carbón cálido con matiz bosque */
 body[data-theme="dark"], body[data-theme="amoled"] {
-  --bg: #101014;
-  --bg-elev: #17171d;
-  --bg-elev-2: #1e1e26;
-  --surface: #17171d;
-  --surface-2: #23232c;
-  --text: #f2f0ee;
-  --text-dim: #a8a5a0;
-  --text-faint: #6f6c67;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.6);
+  --accent: #9fac7e;
+  --accent-deep: #7c8b5f;
+  --accent-soft: #b7c197;
+  --accent-ghost: rgba(159, 172, 126, 0.16);
+  --bg: #14150f;
+  --bg-elev: #1c1e15;
+  --bg-elev-2: #24271b;
+  --surface: #1c1e15;
+  --surface-2: #292c20;
+  --text: #eae7da;
+  --text-dim: #a8a390;
+  --text-faint: #706c5b;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 55px -12px rgba(0, 0, 0, 0.66);
+  --fog: rgba(159, 172, 126, 0.06);
+  --grain-opacity: 0.05;
 }
 body[data-theme="amoled"] {
   --bg: #000000;
-  --bg-elev: #08080a;
-  --bg-elev-2: #101014;
-  --surface: #0a0a0c;
-  --surface-2: #16161a;
+  --bg-elev: #0a0b07;
+  --bg-elev-2: #121309;
+  --surface: #0a0b07;
+  --surface-2: #16180f;
   --border: rgba(255, 255, 255, 0.07);
+  --fog: rgba(159, 172, 126, 0.05);
 }
 @media (prefers-color-scheme: dark) {
   body[data-theme="system"] {
-    --bg: #101014; --bg-elev: #17171d; --bg-elev-2: #1e1e26;
-    --surface: #17171d; --surface-2: #23232c;
-    --text: #f2f0ee; --text-dim: #a8a5a0; --text-faint: #6f6c67;
-    --border: rgba(255,255,255,0.09); --border-strong: rgba(255,255,255,0.16);
-    --shadow: 0 2px 8px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3);
-    --shadow-lg: 0 10px 40px rgba(0,0,0,0.6);
+    --accent: #9fac7e; --accent-deep: #7c8b5f; --accent-soft: #b7c197; --accent-ghost: rgba(159,172,126,0.16);
+    --bg: #14150f; --bg-elev: #1c1e15; --bg-elev-2: #24271b;
+    --surface: #1c1e15; --surface-2: #292c20;
+    --text: #eae7da; --text-dim: #a8a390; --text-faint: #706c5b;
+    --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.15);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -10px rgba(0,0,0,0.5);
+    --shadow-lg: 0 20px 55px -12px rgba(0,0,0,0.66);
+    --fog: rgba(159,172,126,0.06);
   }
 }
 
@@ -74,13 +105,28 @@ body {
   background: var(--bg);
   color: var(--text);
   overscroll-behavior-y: none;
-  -webkit-font-smoothing: antialiased;
-  transition: background .3s var(--ease), color .3s var(--ease);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  letter-spacing: -0.011em;
+  transition: background .4s var(--ease), color .4s var(--ease);
 }
+/* Fondo natural: niebla suave arriba + montañas minimalistas abajo */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(130% 90% at 50% -20%, var(--fog), transparent 55%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='420' viewBox='0 0 1200 420'%3E%3Cg fill='%237b845d' fill-opacity='0.06'%3E%3Cpath d='M0 420V300c90-70 170-70 260-18 96 55 150 30 250-25 96-52 180-40 268 12 92 54 176 44 262-8 60-36 110-40 160-16v195z'/%3E%3C/g%3E%3Cg fill='%2340573f' fill-opacity='0.05'%3E%3Cpath d='M0 420V352c110-58 190-40 300 8 92 40 168 26 270-20 110-50 190-34 290 16 74 37 158 40 240 4v60z'/%3E%3C/g%3E%3C/svg%3E") bottom center / 100% auto no-repeat;
+}
+/* Grano de papel muy sutil */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  opacity: var(--grain-opacity); mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body[data-theme="amoled"]::after, body[data-theme="dark"]::after { mix-blend-mode: screen; }
 button { font-family: inherit; cursor: pointer; }
-svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 img { display: block; max-width: 100%; }
-::selection { background: var(--coral-ghost); }
+::selection { background: var(--accent-ghost); }
 
 /* ─────────── Splash ─────────── */
 .splash {
@@ -455,18 +501,18 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 /* ═══════════════ READER ═══════════════ */
 .reader { position: fixed; inset: 0; z-index: 200; background: var(--r-bg, #f4ecd8); color: var(--r-fg, #3a3226); display: flex; flex-direction: column; }
 /* Reader themes */
-.reader[data-rtheme="white"] { --r-bg: #ffffff; --r-fg: #1a1a1a; --r-ui: #ffffff; }
-.reader[data-rtheme="sepia"] { --r-bg: #f4ecd8; --r-fg: #4a3f2e; --r-ui: #efe6d0; }
-.reader[data-rtheme="gray"]  { --r-bg: #33363b; --r-fg: #d7d9dc; --r-ui: #2b2e33; }
-.reader[data-rtheme="amoled"]{ --r-bg: #000000; --r-fg: #c8c6c2; --r-ui: #0a0a0a; }
-.reader[data-rtheme="black"] { --r-bg: #121212; --r-fg: #cfcdc9; --r-ui: #1a1a1a; }
+.reader[data-rtheme="white"] { --r-bg: #f8f5ed; --r-fg: #2c2a22; --r-ui: #f2eee3; }
+.reader[data-rtheme="sepia"] { --r-bg: #f0e7d2; --r-fg: #453f2e; --r-ui: #eae0c9; }
+.reader[data-rtheme="gray"]  { --r-bg: #35382f; --r-fg: #d9d8c9; --r-ui: #2c2f27; }
+.reader[data-rtheme="amoled"]{ --r-bg: #000000; --r-fg: #c6c4b6; --r-ui: #080806; }
+.reader[data-rtheme="black"] { --r-bg: #16160f; --r-fg: #cfccbf; --r-ui: #1d1d14; }
 
 .reader-page-host { position: relative; flex: 1; overflow: hidden; }
 .reader-content {
   position: absolute; inset: 0;
   padding: calc(env(safe-area-inset-top) + 38px) var(--r-margin, 24px) calc(env(safe-area-inset-bottom) + 32px);
   overflow: hidden; font-size: var(--r-fs, 19px); line-height: var(--r-lh, 1.7);
-  font-family: var(--r-font, Georgia, "Times New Roman", serif);
+  font-family: var(--r-font, "Literata", Georgia, "Times New Roman", serif);
   letter-spacing: var(--r-ls, 0); word-spacing: var(--r-ws, 0);
   text-align: var(--r-align, justify); hyphens: auto; column-gap: 0;
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
@@ -591,3 +637,102 @@ body[data-theme="amoled"].highContrast, body[data-theme="dark"].highContrast { -
   .card, .stat-tile { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
   body { background: #fff; color: #000; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Refinamiento "santuario" — minimalismo cálido, premium
+   ══════════════════════════════════════════════════════════════ */
+.splash-mark { filter: drop-shadow(0 10px 26px rgba(64,87,63,.32)); }
+.splash-title { font-weight: 700; letter-spacing: -.5px; }
+.splash-bar span { background: linear-gradient(90deg, var(--accent), var(--accent-deep)); }
+
+/* Topbar más silenciosa */
+.topbar { border-bottom-color: transparent; background: color-mix(in srgb, var(--bg) 72%, transparent); }
+.topbar-title { font-weight: 650; letter-spacing: -.4px; }
+.icon-btn { transition: background .25s var(--ease), transform .18s var(--ease); }
+.icon-btn:active { transform: scale(.86); }
+
+/* Portadas con profundidad y sombra dinámica */
+.book-cover {
+  border-radius: 14px;
+  box-shadow: 0 1px 1px rgba(40,38,24,.06), 0 10px 22px -10px rgba(40,38,24,.35), 0 22px 40px -24px rgba(40,38,24,.4);
+  transition: transform .3s var(--ease), box-shadow .3s var(--ease);
+}
+.book-cover::after { /* borde interior sutil para dar “grosor” de tapa */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), inset 2px 0 4px -2px rgba(0,0,0,.25);
+}
+.book:active .book-cover { transform: translateY(1px) scale(.97); box-shadow: 0 6px 14px -8px rgba(40,38,24,.4); }
+@media (hover:hover) { .book:hover .book-cover { transform: translateY(-4px); box-shadow: 0 4px 6px rgba(40,38,24,.08), 0 20px 40px -14px rgba(40,38,24,.4); } }
+.book-title { font-weight: 600; letter-spacing: -.2px; }
+.book-badge { background: rgba(30,32,20,.5); font-weight: 700; backdrop-filter: blur(6px); border-radius: 7px; }
+.book-fav svg { fill: var(--accent); }
+
+/* Botones — acción principal en verde bosque, tacto premium */
+.btn {
+  background: var(--accent-deep); box-shadow: 0 6px 18px -8px rgba(64,87,63,.6);
+  border-radius: 999px; font-weight: 600; letter-spacing: -.1px;
+  transition: transform .18s var(--ease), box-shadow .28s var(--ease), background .28s var(--ease);
+}
+.btn:active { transform: scale(.96); }
+.btn.ghost { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.chip { transition: transform .18s var(--ease), background .28s var(--ease), color .28s var(--ease); font-weight: 550; border-radius: 999px; }
+.chip.is-active { background: var(--accent); border-color: var(--accent); box-shadow: 0 6px 16px -8px rgba(123,132,93,.7); }
+
+/* FAB — discreto, degradado natural */
+.fab {
+  border-radius: 22px; background: linear-gradient(150deg, var(--accent), var(--accent-deep));
+  box-shadow: 0 10px 26px -8px rgba(64,87,63,.6), 0 2px 6px rgba(0,0,0,.14);
+  transition: transform .22s var(--ease), box-shadow .28s var(--ease);
+}
+.fab:active { transform: scale(.9); }
+
+/* Nav inferior — barra limpia */
+.bottomnav { background: color-mix(in srgb, var(--bg-elev) 84%, transparent); border-top-color: var(--border); }
+.nav-item { font-weight: 550; letter-spacing: -.1px; transition: color .28s var(--ease); }
+.nav-item.is-active::before { background: var(--accent-ghost); }
+
+/* Tarjetas y superficies — bordes suaves, mucho aire */
+.card, .stat-tile { border-radius: var(--radius); box-shadow: var(--shadow); border-color: var(--border); }
+.stat-tile .val { letter-spacing: -1.2px; font-weight: 700; }
+.stat-tile.accent { background: linear-gradient(150deg, var(--accent), var(--accent-deep)); }
+.section-title { font-weight: 650; letter-spacing: -.3px; }
+
+/* Drawer / hojas — vidrio suave donde aporta */
+.drawer { background: color-mix(in srgb, var(--bg-elev) 96%, transparent); backdrop-filter: blur(24px); }
+.drawer-item { border-radius: 14px; transition: background .25s var(--ease); }
+.sheet { border-radius: 28px 28px 0 0; }
+@media (min-width:640px){ .sheet { border-radius: 28px; } }
+.sheet-action { border-radius: 16px; }
+
+/* Estados vacíos — ilustrados y cálidos */
+.empty .emoji {
+  width: 96px; height: 96px; margin: 0 auto 14px; display: grid; place-items: center;
+  font-size: 44px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, var(--accent-ghost), transparent 70%);
+}
+.empty h3 { font-weight: 650; letter-spacing: -.3px; }
+
+/* Skeleton más cálido */
+.skel { background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 55%, var(--bg-elev)) 37%, var(--surface-2) 63%); background-size: 400% 100%; }
+
+/* Segmented / toggles con acento oliva */
+.seg button.on { color: var(--text); }
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.swatch.on, input[type="range"]::-webkit-slider-thumb { box-shadow: 0 2px 8px rgba(64,87,63,.5); }
+input[type="range"]::-webkit-slider-thumb { background: var(--accent); }
+input[type="range"]::-moz-range-thumb { background: var(--accent); }
+
+/* Reader: capitular en verde bosque suave, tipografía de lectura */
+.reader-content:not(.media) > section > p:first-of-type::first-letter {
+  color: color-mix(in srgb, var(--r-fg) 70%, var(--accent-deep));
+}
+.reader-content { letter-spacing: 0; }
+.reader-top .r-title { font-family: var(--font); font-weight: 600; letter-spacing: -.2px; }
+
+/* Coral hero en degradado natural */
+.coral-hero { background: linear-gradient(150deg, var(--accent), var(--accent-deep)); box-shadow: 0 14px 40px -14px rgba(64,87,63,.5); }
+.coral-say .av { background: linear-gradient(150deg, var(--accent), var(--accent-soft)); }
+.coral-say .txt b { color: var(--accent-deep); }
+
+/* Doble página en horizontal (visor de medios) */
+.reader-content.media.spread .rpage { width: 50%; }

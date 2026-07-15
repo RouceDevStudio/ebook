@@ -3,12 +3,23 @@
    búsqueda automática online (Google Books / Open Library).
    ══════════════════════════════════════════════════ */
 
+/* Paleta natural y sobria — tonos tierra, bosque, piedra y arcilla */
 const PALETTES = [
-  ['#ff6f61', '#e8564a'], ['#6a5acd', '#4834a8'], ['#20b2aa', '#0e8079'],
-  ['#f4a261', '#e07a3b'], ['#457b9d', '#1d3557'], ['#e76f51', '#bc4b2f'],
-  ['#2a9d8f', '#1c6f65'], ['#8e7cc3', '#5f4b9b'], ['#d16ba5', '#9b3d78'],
-  ['#3a86ff', '#1f5fd6'], ['#c1121f', '#8a0d17'], ['#386641', '#24462c'],
-  ['#5f0f40', '#3d0a2a'], ['#9a8c98', '#6d6370'], ['#264653', '#12252e'],
+  ['#6b7350', '#454d33'], // oliva
+  ['#566349', '#38432e'], // musgo
+  ['#7a6a52', '#4f4232'], // madera
+  ['#8a7d5f', '#5c5138'], // arena
+  ['#586b62', '#37473f'], // salvia
+  ['#6d5f52', '#463b30'], // tierra
+  ['#7c5c50', '#523a30'], // terracota
+  ['#5b5a6b', '#3a3947'], // pizarra
+  ['#6b5560', '#443440'], // ciruela
+  ['#4f606b', '#323e48'], // azul niebla
+  ['#70714c', '#494a2f'], // oliva dorado
+  ['#4f6152', '#324034'], // bosque
+  ['#7d7157', '#544a37'], // lino
+  ['#5a5347', '#3a352b'], // carbón cálido
+  ['#63705f', '#3f4a3c'], // helecho
 ];
 function hash(str = '') { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
 
