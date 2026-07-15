@@ -735,4 +735,5 @@ input[type="range"]::-moz-range-thumb { background: var(--accent); }
 .coral-say .txt b { color: var(--accent-deep); }
 
 /* Doble página en horizontal (visor de medios) */
-.reader-content.media.spread .rpage { width: 50%; }
+.reader-content.media.spread .rpage { right: auto; width: 50%; }
+.reader-content.media.spread .rpage[data-i]:nth-child(even) { box-shadow: inset 1px 0 0 color-mix(in srgb, var(--r-fg) 8%, transparent); }

@@ -161,9 +161,10 @@ function setupPaged(hostEl, content, progress) {
   const layout = () => {
     const W = hostEl.clientWidth;
     const m = R.settings.margin;
+    const two = W > hostEl.clientHeight * 1.15;   // horizontal → dos columnas (libro abierto)
     content.style.width = W + 'px';
     content.style.height = hostEl.clientHeight + 'px';
-    content.style.columnWidth = (W - 2 * m) + 'px';
+    content.style.columnWidth = (two ? (W - 4 * m) / 2 : (W - 2 * m)) + 'px';
     content.style.columnGap = (2 * m) + 'px';
     content.style.paddingLeft = m + 'px';
     content.style.paddingRight = m + 'px';
@@ -187,8 +188,12 @@ function setupPaged(hostEl, content, progress) {
 // Reflow: se traslada TODO el contenido en columnas.
 // Medios (PDF/cómic): carrusel — cada página es una capa absoluta que se
 // traslada por su cuenta (evita el bug de pintado de filas flex enormes).
+function isLandscape() { return window.innerWidth > window.innerHeight * 1.15; }
+function stepSize() { return (R.mediaPaged && R.spread) ? 2 : 1; }
 function setPageTransform(content, page) {
   if (R.mediaPaged && content.id === 'rContent') {
+    // translateX(%) es relativo al ancho de la celda (= una ranura, sea
+    // pantalla completa o media en doble página): siempre 100% por ranura.
     content.querySelectorAll('.rpage').forEach((c) => { c.style.transform = `translateX(${(+c.dataset.i - page) * 100}%)`; });
   } else {
     content.style.transform = `translateX(${-page * R.pageW}px)`;
@@ -202,7 +207,8 @@ function goToPage(page, animate = 1, dir = 1) {
   // renderiza la página destino cuanto antes (evita ver blanco tras el giro)
   if (R.renderCell && !R.rendered.has(page)) { R.rendered.add(page); R.renderCell(page); }
   if (page === R.page && animate) return;
-  const anim = R.settings.pageAnimation;
+  // En doble página, el giro 3D de una sola hoja no aplica: usamos deslizamiento.
+  const anim = (R.mediaPaged && R.spread) ? 'slide' : R.settings.pageAnimation;
   if (!animate || anim === 'none') { R.page = page; content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); setPageTransform(content, page); afterPageChange(); return; }
   if (anim === 'slide') {
     R.page = page;
@@ -271,8 +277,8 @@ function afterPageChange() {
   saveProgressDebounced();
 }
 
-function nextPage() { if (R.page < R.totalPages - 1) { haptic(4); goToPage(R.page + 1, 1, 1); } }
-function prevPage() { if (R.page > 0) { haptic(4); goToPage(R.page - 1, 1, -1); } }
+function nextPage() { const s = stepSize(); if (R.page < R.totalPages - 1) { haptic(4); goToPage(Math.min(R.totalPages - 1, R.page + s), 1, 1); } }
+function prevPage() { const s = stepSize(); if (R.page > 0) { haptic(4); goToPage(Math.max(0, R.page - s), 1, -1); } }
 
 function currentPercent() {
   if (!R) return 0;
@@ -396,14 +402,22 @@ function setupMediaPaged(progress, renderCell) {
   content.style.position = 'absolute'; content.style.inset = '0';
   R.rendered = new Set();
   R.renderCell = renderCell;
-  const layout = () => { R.pageW = hostEl.clientWidth; setPageTransform(content, R.page); };
-  // Carrusel: cada página es una capa absoluta a pantalla completa.
+  const applySpread = () => {
+    const sp = isLandscape();
+    if (sp !== R.spread) { R.rendered = new Set(); content.querySelectorAll('.rpage').forEach((c) => c.innerHTML = ''); }
+    R.spread = sp;
+    content.classList.toggle('spread', sp);
+    if (sp && R.page % 2 === 1) R.page--;   // alinea a página izquierda
+  };
+  const layout = () => { R.pageW = hostEl.clientWidth; applySpread(); setPageTransform(content, R.page); ensureCells(); updateProgressUI(); };
+  // Carrusel: cada página es una capa absoluta (a pantalla completa, o mitad en doble página).
   for (let i = 0; i < R.totalPages; i++) {
     const cell = document.createElement('div'); cell.className = 'rpage'; cell.dataset.i = i;
     content.appendChild(cell);
   }
   R.pageW = hostEl.clientWidth;
   R.page = Math.min(R.totalPages - 1, Math.max(0, Math.round((progress.percent || 0) * (R.totalPages - 1))));
+  applySpread();
   setPageTransform(content, R.page);
   bindChrome(() => {});
   bindReaderGestures(hostEl, false);
@@ -416,14 +430,14 @@ function setupMediaPaged(progress, renderCell) {
 }
 function ensureCells() {
   if (!R || !R.renderCell) return;
-  for (let i = R.page - 2; i <= R.page + 3; i++) {
+  for (let i = R.page - 2; i <= R.page + 4; i++) {
     if (i < 0 || i >= R.totalPages || R.rendered.has(i)) continue;
     R.rendered.add(i);
     R.renderCell(i);
   }
   // libera páginas lejanas para no agotar memoria en PDF grandes
   for (const i of [...R.rendered]) {
-    if (i < R.page - 5 || i > R.page + 6) {
+    if (i < R.page - 6 || i > R.page + 7) {
       const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
       if (cell) { const img = cell.querySelector('img'); if (img && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src); cell.innerHTML = ''; }
       R.rendered.delete(i);
@@ -444,7 +458,8 @@ async function renderPdfCell(i) {
   if (!cell.querySelector('img')) cell.innerHTML = '<div class="spinner"></div>';
   try {
     const hostEl = document.getElementById('rHost');
-    const pw = (R.pageW || hostEl?.clientWidth || 400) - 24;   // menos padding lateral
+    const slotW = (R.pageW || hostEl?.clientWidth || 400) / (R.spread ? 2 : 1);
+    const pw = slotW - 24;                                     // menos padding lateral
     const ph = (hostEl?.clientHeight || 600) - 40;             // menos padding vertical
     const zoom = R.zoom || 1;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
