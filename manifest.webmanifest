@@ -1,0 +1,58 @@
+{
+  "name": "Coral Reader — tu biblioteca viva",
+  "short_name": "Coral",
+  "description": "Convierte tu teléfono en un ebook. Biblioteca, lector con pasa-página realista, estadísticas y Coral, tu bibliotecario con IA. 100% offline.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "fullscreen"],
+  "orientation": "any",
+  "background_color": "#0b0b0f",
+  "theme_color": "#ff6f61",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": ["books", "education", "productivity", "lifestyle"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Seguir leyendo", "short_name": "Continuar", "url": "/?action=continue", "description": "Abre tu último libro justo donde lo dejaste" },
+    { "name": "Biblioteca", "short_name": "Biblioteca", "url": "/?view=library" },
+    { "name": "Estadísticas", "short_name": "Stats", "url": "/?view=stats" },
+    { "name": "Importar libros", "short_name": "Importar", "url": "/?action=import" }
+  ],
+  "file_handlers": [
+    {
+      "action": "/?action=open-file",
+      "accept": {
+        "application/epub+zip": [".epub"],
+        "application/pdf": [".pdf"],
+        "application/x-mobipocket-ebook": [".mobi", ".azw", ".azw3"],
+        "application/vnd.comicbook+zip": [".cbz"],
+        "application/vnd.comicbook-rar": [".cbr"],
+        "application/x-fictionbook+xml": [".fb2"],
+        "text/plain": [".txt"],
+        "text/html": [".html", ".htm"],
+        "text/markdown": [".md", ".markdown"],
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/?action=share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        { "name": "books", "accept": ["application/epub+zip", "application/pdf", ".epub", ".pdf", ".mobi", ".azw3", ".cbz", ".fb2", ".txt", ".md", ".docx", ".html"] }
+      ]
+    }
+  }
+}
