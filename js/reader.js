@@ -443,22 +443,27 @@ async function renderPdfCell(i) {
   if (!cell) return;
   if (!cell.querySelector('img')) cell.innerHTML = '<div class="spinner"></div>';
   try {
-    const pw = R.pageW || document.getElementById('rHost')?.clientWidth || 400;
+    const hostEl = document.getElementById('rHost');
+    const pw = (R.pageW || hostEl?.clientWidth || 400) - 24;   // menos padding lateral
+    const ph = (hostEl?.clientHeight || 600) - 40;             // menos padding vertical
+    const zoom = R.zoom || 1;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     const page = await R.pdf.getPage(i + 1);
     const vp0 = page.getViewport({ scale: 1 });
-    const fit = pw / vp0.width;
-    const scale = fit * (R.zoom || 1) * Math.min(2, window.devicePixelRatio || 1);
-    const vp = page.getViewport({ scale });
+    // "contain": la página COMPLETA cabe en pantalla, con su proporción real
+    const containFit = Math.min(pw / vp0.width, ph / vp0.height);
+    const vp = page.getViewport({ scale: containFit * zoom * dpr });
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(vp.width)); canvas.height = Math.max(1, Math.round(vp.height));
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
     const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
     if (!R || !document.querySelector('#rContent .rpage[data-i="' + i + '"]')) return; // lector cerrado
+    const cssW = Math.round(vp0.width * containFit * zoom); // tamaño en px CSS
     const img = new Image();
     img.onload = () => { if (cell.isConnected) { cell.innerHTML = ''; cell.appendChild(img); } };
     img.src = URL.createObjectURL(blob);
-    img.style.width = ((R.zoom || 1) * 100) + '%';
-    cell.style.overflow = (R.zoom || 1) > 1 ? 'auto' : 'hidden';
+    if (zoom > 1) { img.style.width = cssW + 'px'; img.style.height = 'auto'; img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; cell.style.overflow = 'auto'; }
+    else { img.style.width = 'auto'; img.style.height = 'auto'; img.style.maxWidth = '100%'; img.style.maxHeight = '100%'; cell.style.overflow = 'hidden'; }
   } catch (e) { R.rendered.delete(i); cell.innerHTML = '<div class="muted center" style="margin:auto;font-size:12px">No se pudo mostrar esta página</div>'; }
 }
 function pdfZoomSheet() {
@@ -475,8 +480,10 @@ function buildImagesReader(progress) {
   setupMediaPaged(progress, (i) => {
     const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
     if (!cell || cell.firstChild) return;
-    const img = new Image(); img.src = doc.images[i]; img.style.width = '100%'; img.style.objectFit = 'contain'; img.style.maxHeight = '100%';
-    cell.appendChild(img);
+    const img = new Image();
+    img.onload = () => { if (cell.isConnected) { cell.innerHTML = ''; cell.appendChild(img); } };
+    img.src = doc.images[i];  // CSS ajusta la página completa (contain)
+    if (!cell.querySelector('img')) cell.innerHTML = '<div class="spinner"></div>';
   });
 }
 
