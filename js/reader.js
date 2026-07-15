@@ -89,15 +89,32 @@ function chrome(book) {
   <div class="reader-pageinfo" id="rPageInfo"></div>
   <div class="reader-chrome reader-bottom" id="rBottom">
     <div class="reader-progress"><input type="range" id="rSlider" min="0" max="1000" value="0"><span class="pct" id="rPct">0%</span></div>
-    <div class="reader-toolbar">
-      <button id="tbToc"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Índice</span></button>
-      <button id="tbAa"><svg viewBox="0 0 24 24"><path d="M4 20l6-14 6 14M6 15h8"/></svg><span>Texto</span></button>
-      <button id="tbTheme"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 7 7 0 010-14 5 5 0 000 10"/></svg><span>Tema</span></button>
-      <button id="tbLight"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg><span>Brillo</span></button>
-      <button id="tbNotes"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4z"/></svg><span>Notas</span></button>
-      <button id="tbFocus"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4"/></svg><span>Enfoque</span></button>
-    </div>
+    <div class="reader-toolbar" id="rToolbar"></div>
   </div>`;
+}
+
+const TB_ICONS = {
+  toc: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  text: '<svg viewBox="0 0 24 24"><path d="M4 20l6-14 6 14M6 15h8"/></svg>',
+  zoom: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v6M8 11h6"/></svg>',
+  theme: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 7 7 0 010-14 5 5 0 000 10"/></svg>',
+  light: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>',
+  notes: '<svg viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4z"/></svg>',
+};
+
+// Barra inferior contextual: solo lo que aporta según el tipo de libro.
+function buildToolbar(reRender) {
+  const bar = document.getElementById('rToolbar'); if (!bar) return;
+  const hasToc = (R.doc.toc || []).length > 0;
+  const items = [];
+  if (hasToc) items.push(['toc', 'Índice', () => openToc()]);
+  if (R.kind === 'pdf') items.push(['zoom', 'Zoom', () => pdfZoomSheet()]);
+  else if (R.kind !== 'images') items.push(['text', 'Texto', () => openTypography(reRender)]);
+  items.push(['theme', 'Tema', () => openThemePicker()]);
+  items.push(['light', 'Brillo', () => openBrightness()]);
+  if (R.kind !== 'pdf' && R.kind !== 'images') items.push(['notes', 'Notas', () => openNotes()]);
+  bar.innerHTML = items.map(([ic, label]) => `<button data-tb="${label}">${TB_ICONS[ic]}<span>${label}</span></button>`).join('');
+  bar.querySelectorAll('button').forEach((b, i) => b.onclick = items[i][2]);
 }
 
 function bindChrome(reRender) {
@@ -105,12 +122,7 @@ function bindChrome(reRender) {
   $('rClose').onclick = () => closeReader();
   $('rMenu').onclick = () => openReaderMenu();
   $('rBookmark').onclick = () => addBookmark();
-  $('tbToc').onclick = () => openToc();
-  $('tbAa').onclick = () => openTypography(reRender);
-  $('tbTheme').onclick = () => openThemePicker();
-  $('tbLight').onclick = () => openBrightness();
-  $('tbNotes').onclick = () => openNotes();
-  $('tbFocus').onclick = () => toggleFocus();
+  buildToolbar(reRender);
   applyBrightness();
 }
 
@@ -172,16 +184,31 @@ function setupPaged(hostEl, content, progress) {
   window.addEventListener('resize', R._resize = debounce(() => { const pct = currentPercent(); progress.percent = pct; layout(); }, 200));
 }
 
-function setPageTransform(content, page) { content.style.transform = `translateX(${-page * R.pageW}px)`; }
+// Reflow: se traslada TODO el contenido en columnas.
+// Medios (PDF/cómic): carrusel — cada página es una capa absoluta que se
+// traslada por su cuenta (evita el bug de pintado de filas flex enormes).
+function setPageTransform(content, page) {
+  if (R.mediaPaged && content.id === 'rContent') {
+    content.querySelectorAll('.rpage').forEach((c) => { c.style.transform = `translateX(${(+c.dataset.i - page) * 100}%)`; });
+  } else {
+    content.style.transform = `translateX(${-page * R.pageW}px)`;
+  }
+}
+function setMediaTransition(t) { document.querySelectorAll('#rContent .rpage').forEach((c) => { c.style.transition = t; }); }
 
 function goToPage(page, animate = 1, dir = 1) {
   const content = document.getElementById('rContent');
   page = Math.max(0, Math.min(R.totalPages - 1, page));
+  // renderiza la página destino cuanto antes (evita ver blanco tras el giro)
+  if (R.renderCell && !R.rendered.has(page)) { R.rendered.add(page); R.renderCell(page); }
   if (page === R.page && animate) return;
   const anim = R.settings.pageAnimation;
-  if (!animate || anim === 'none') { R.page = page; content.style.transition = 'none'; setPageTransform(content, page); afterPageChange(); return; }
+  if (!animate || anim === 'none') { R.page = page; content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); setPageTransform(content, page); afterPageChange(); return; }
   if (anim === 'slide') {
-    R.page = page; content.style.transition = 'transform .32s cubic-bezier(.22,1,.36,1)'; setPageTransform(content, page); afterPageChange(); return;
+    R.page = page;
+    const tr = 'transform .32s cubic-bezier(.22,1,.36,1)';
+    content.style.transition = tr; if (R.mediaPaged) setMediaTransition(tr);
+    setPageTransform(content, page); afterPageChange(); return;
   }
   // realistic flip (pasa-página de libro real) — funciona en reflow y en PDF/cómic
   flipPage(page, dir);
@@ -216,7 +243,7 @@ function flipPage(newPage, dir) {
 
   if (dir > 0) {
     // avanza: la página actual gira hacia el lomo (izq), revela la nueva debajo
-    content.style.transition = 'none'; R.page = newPage; setPageTransform(content, newPage);
+    content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); R.page = newPage; setPageTransform(content, newPage);
     flip.style.transform = 'rotateY(0deg)';
     requestAnimationFrame(() => { flip.style.transition = 'transform .52s cubic-bezier(.4,0,.2,1)'; flip.style.transform = 'rotateY(-178deg)'; shade.style.transition = 'opacity .52s'; shade.style.opacity = '1'; });
   } else {
@@ -229,7 +256,7 @@ function flipPage(newPage, dir) {
   const done = () => {
     if (finished) return; finished = true;
     if (!R) { flip.remove(); return; }
-    if (dir < 0) { content.style.transition = 'none'; R.page = newPage; setPageTransform(content, newPage); }
+    if (dir < 0) { content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); R.page = newPage; setPageTransform(content, newPage); }
     flip.remove(); afterPageChange();
   };
   flip.addEventListener('transitionend', done, { once: true });
@@ -366,20 +393,16 @@ function setupMediaPaged(progress, renderCell) {
   R.mediaPaged = true;
   const hostEl = document.getElementById('rHost');
   const content = document.getElementById('rContent');
-  content.style.position = 'absolute'; content.style.top = '0'; content.style.left = '0'; content.style.height = '100%'; content.style.display = 'flex';
+  content.style.position = 'absolute'; content.style.inset = '0';
   R.rendered = new Set();
   R.renderCell = renderCell;
-  const layout = () => {
-    R.pageW = hostEl.clientWidth;
-    content.querySelectorAll('.rpage').forEach((c) => { c.style.width = R.pageW + 'px'; });
-    setPageTransform(content, R.page);
-  };
+  const layout = () => { R.pageW = hostEl.clientWidth; setPageTransform(content, R.page); };
+  // Carrusel: cada página es una capa absoluta a pantalla completa.
   for (let i = 0; i < R.totalPages; i++) {
     const cell = document.createElement('div'); cell.className = 'rpage'; cell.dataset.i = i;
     content.appendChild(cell);
   }
   R.pageW = hostEl.clientWidth;
-  content.querySelectorAll('.rpage').forEach((c) => { c.style.width = R.pageW + 'px'; });
   R.page = Math.min(R.totalPages - 1, Math.max(0, Math.round((progress.percent || 0) * (R.totalPages - 1))));
   setPageTransform(content, R.page);
   bindChrome(() => {});
@@ -393,10 +416,18 @@ function setupMediaPaged(progress, renderCell) {
 }
 function ensureCells() {
   if (!R || !R.renderCell) return;
-  for (let i = R.page - 1; i <= R.page + 2; i++) {
+  for (let i = R.page - 2; i <= R.page + 3; i++) {
     if (i < 0 || i >= R.totalPages || R.rendered.has(i)) continue;
     R.rendered.add(i);
     R.renderCell(i);
+  }
+  // libera páginas lejanas para no agotar memoria en PDF grandes
+  for (const i of [...R.rendered]) {
+    if (i < R.page - 5 || i > R.page + 6) {
+      const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
+      if (cell) { const img = cell.querySelector('img'); if (img && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src); cell.innerHTML = ''; }
+      R.rendered.delete(i);
+    }
   }
 }
 
@@ -405,29 +436,30 @@ async function buildPdfReader(progress) {
   const { doc } = R;
   R.pdf = doc.pdfDoc; R.numPages = doc.numPages; R.totalPages = doc.numPages; R.zoom = (progress.pdfZoom || 1); R.kind = 'pdf';
   setupMediaPaged(progress, renderPdfCell);
-  // Reemplaza "Texto" por "Zoom" en la barra
-  const aa = document.getElementById('tbAa');
-  if (aa) { aa.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v6M8 11h6"/></svg><span>Zoom</span>'; aa.onclick = () => pdfZoomSheet(); }
   R._toc = doc.toc;
 }
 async function renderPdfCell(i) {
   const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
   if (!cell) return;
+  if (!cell.querySelector('img')) cell.innerHTML = '<div class="spinner"></div>';
   try {
+    const pw = R.pageW || document.getElementById('rHost')?.clientWidth || 400;
     const page = await R.pdf.getPage(i + 1);
     const vp0 = page.getViewport({ scale: 1 });
-    const fit = (R.pageW || 400) / vp0.width;
+    const fit = pw / vp0.width;
     const scale = fit * (R.zoom || 1) * Math.min(2, window.devicePixelRatio || 1);
     const vp = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
-    canvas.width = vp.width; canvas.height = vp.height;
+    canvas.width = Math.max(1, Math.round(vp.width)); canvas.height = Math.max(1, Math.round(vp.height));
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
-    const img = new Image(); img.src = URL.createObjectURL(blob);
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+    if (!R || !document.querySelector('#rContent .rpage[data-i="' + i + '"]')) return; // lector cerrado
+    const img = new Image();
+    img.onload = () => { if (cell.isConnected) { cell.innerHTML = ''; cell.appendChild(img); } };
+    img.src = URL.createObjectURL(blob);
     img.style.width = ((R.zoom || 1) * 100) + '%';
-    cell.innerHTML = ''; cell.appendChild(img);
-    if ((R.zoom || 1) > 1) cell.style.overflow = 'auto'; else cell.style.overflow = 'hidden';
-  } catch (_) { cell.innerHTML = '<div class="muted center" style="margin:auto">·</div>'; }
+    cell.style.overflow = (R.zoom || 1) > 1 ? 'auto' : 'hidden';
+  } catch (e) { R.rendered.delete(i); cell.innerHTML = '<div class="muted center" style="margin:auto;font-size:12px">No se pudo mostrar esta página</div>'; }
 }
 function pdfZoomSheet() {
   R.App.sheet(`<h3>Zoom</h3><div class="field"><input type="range" min="70" max="300" value="${Math.round((R.zoom||1)*100)}" id="_z"><div class="center muted" id="_zv">${Math.round((R.zoom||1)*100)}%</div></div><p class="muted" style="font-size:12px">Con zoom puedes desplazar la página con el dedo.</p>`);
@@ -446,7 +478,6 @@ function buildImagesReader(progress) {
     const img = new Image(); img.src = doc.images[i]; img.style.width = '100%'; img.style.objectFit = 'contain'; img.style.maxHeight = '100%';
     cell.appendChild(img);
   });
-  const aa = document.getElementById('tbAa'); if (aa) aa.style.visibility = 'hidden';
 }
 
 /* ═════════ TOC / Tipografía / Tema / Brillo / Notas ═════════ */
@@ -599,13 +630,15 @@ async function addBookmark() {
 function openReaderMenu() {
   R.App.sheet(`<h3>${esc(R.book.title)}</h3><p class="sub">${esc(R.book.author || '')}</p>
     <div class="menu-list">
+      <button data-a="focus"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4"/></svg>Modo concentración</button>
       <button data-a="finish"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>Marcar como terminado</button>
       <button data-a="tts"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15 9a3 3 0 010 6"/></svg>Leer en voz alta (TTS)</button>
       <button data-a="info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4"/></svg>Detalles del libro</button>
     </div>`);
   document.getElementById('modalHost').querySelectorAll('[data-a]').forEach((b) => b.onclick = async () => {
     const a = b.dataset.a; R.App.closeModal();
-    if (a === 'finish') { await models.setStatus(R.bookId, 'finished'); toast('¡Terminado! 🎉'); }
+    if (a === 'focus') toggleFocus();
+    else if (a === 'finish') { await models.setStatus(R.bookId, 'finished'); toast('¡Terminado! 🎉'); }
     else if (a === 'tts') startTTS();
     else if (a === 'info') showBookInfo();
   });
