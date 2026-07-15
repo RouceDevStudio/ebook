@@ -2,9 +2,9 @@
   "name": "Coral Reader — tu biblioteca viva",
   "short_name": "Coral",
   "description": "Convierte tu teléfono en un ebook. Biblioteca, lector con pasa-página realista, estadísticas y Coral, tu bibliotecario con IA. 100% offline.",
-  "id": "/",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "id": "./",
+  "start_url": "./?source=pwa",
+  "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "fullscreen"],
   "orientation": "any",
@@ -20,14 +20,14 @@
     { "src": "icons/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
-    { "name": "Seguir leyendo", "short_name": "Continuar", "url": "/?action=continue", "description": "Abre tu último libro justo donde lo dejaste" },
-    { "name": "Biblioteca", "short_name": "Biblioteca", "url": "/?view=library" },
-    { "name": "Estadísticas", "short_name": "Stats", "url": "/?view=stats" },
-    { "name": "Importar libros", "short_name": "Importar", "url": "/?action=import" }
+    { "name": "Seguir leyendo", "short_name": "Continuar", "url": "./?action=continue", "description": "Abre tu último libro justo donde lo dejaste" },
+    { "name": "Biblioteca", "short_name": "Biblioteca", "url": "./?view=library" },
+    { "name": "Estadísticas", "short_name": "Stats", "url": "./?view=stats" },
+    { "name": "Importar libros", "short_name": "Importar", "url": "./?action=import" }
   ],
   "file_handlers": [
     {
-      "action": "/?action=open-file",
+      "action": "./?action=open-file",
       "accept": {
         "application/epub+zip": [".epub"],
         "application/pdf": [".pdf"],
@@ -43,7 +43,7 @@
     }
   ],
   "share_target": {
-    "action": "/?action=share-target",
+    "action": "./?action=share-target",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {

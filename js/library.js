@@ -181,6 +181,7 @@ async function openBookMenu(book, App) {
       <button data-a="cover"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Cambiar portada</button>
       <button data-a="coral"><svg viewBox="0 0 24 24"><path d="M12 3c4.5 0 8 3 8 7 0 2.5-1.6 4-3 5-1 .7-1 2-1 3H8c0-1 0-2.3-1-3-1.4-1-3-2.5-3-5 0-4 3.5-7 8-7z"/></svg>Que Coral complete datos</button>
       <button data-a="folder"><svg viewBox="0 0 24 24"><path d="M3 7h5l2 2h11v9H3z"/></svg>Mover a carpeta</button>
+      <button data-a="coll"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Añadir a colección</button>
       <button data-a="hide"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>${book.hidden ? 'Mostrar' : 'Ocultar'}</button>
       <button data-a="trash" class="danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Enviar a papelera</button>
     </div>`);
@@ -195,6 +196,7 @@ async function openBookMenu(book, App) {
     else if (a === 'cover') changeCover(book, App);
     else if (a === 'coral') coralComplete(book, App);
     else if (a === 'folder') moveToFolder(book, App);
+    else if (a === 'coll') addToCollectionSheet(book, App);
     else if (a === 'hide') { const bk = await models.getBook(book.id); bk.hidden = !bk.hidden; await models.saveBook(bk); await App.refresh(); App.render(); toast(bk.hidden ? 'Libro oculto' : 'Libro visible'); }
     else if (a === 'trash') { await models.trashBook(book.id); await App.refresh(); App.render(); toast('En la papelera', { actionLabel: 'Deshacer', onAction: async () => { await models.restoreBook(book.id); await App.refresh(); App.render(); } }); }
   });
@@ -297,6 +299,20 @@ async function moveToFolder(book, App) {
     if (fid === '__new') { const name = await App.prompt('Nueva carpeta', 'Nombre'); if (!name) return; const f = await models.createFolder(name); fid = f.id; }
     const bk = await models.getBook(book.id); bk.folderId = fid || null; await models.saveBook(bk);
     await App.refresh(); App.render(); toast('Libro movido');
+  });
+}
+
+async function addToCollectionSheet(book, App) {
+  const colls = await models.allCollections();
+  const items = colls.map((c) => `<button data-c="${c.id}">${(c.bookIds || []).includes(book.id) ? '✅' : '📚'} ${esc(c.name)} <span style="margin-left:auto;opacity:.5">${(c.bookIds || []).length}</span></button>`).join('');
+  App.sheet(`<h3>Añadir a colección</h3><div class="menu-list">
+    ${items || '<p class="muted center" style="padding:16px 0">Aún no tienes colecciones.</p>'}
+    <button data-c="__new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nueva colección…</button></div>`);
+  document.getElementById('modalHost').querySelectorAll('[data-c]').forEach((b) => b.onclick = async () => {
+    let id = b.dataset.c; App.closeModal();
+    if (id === '__new') { const name = await App.prompt('Nueva colección', 'Nombre de la colección', 'Mis favoritos de fantasía'); if (!name) return; const c = await models.createCollection(name); await models.addToCollection(c.id, book.id); App.buildDrawer(); toast('Colección creada'); return; }
+    const added = await models.toggleInCollection(id, book.id);
+    App.buildDrawer(); toast(added ? 'Añadido a la colección' : 'Quitado de la colección');
   });
 }
 

@@ -509,7 +509,11 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 .dim-layer { background: #000; opacity: 0; }
 .warm-layer { background: #ff8a00; mix-blend-mode: multiply; opacity: 0; }
 
-/* PDF / comic canvas mode */
+/* PDF / cómic — modo paginado (una página por pantalla) */
+.reader-content.media { padding: 0; display: flex; }
+.rpage { flex: 0 0 auto; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--r-bg); }
+.rpage img { display: block; margin: auto; box-shadow: 0 2px 16px rgba(0,0,0,.25); background: #fff; }
+/* PDF / comic canvas mode (legacy continuo, por si se reutiliza) */
 .reader-canvas-host { position: absolute; inset: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0; -webkit-overflow-scrolling: touch; }
 .reader-canvas-host canvas, .reader-canvas-host img { max-width: 100%; box-shadow: var(--shadow); background: #fff; }
 

@@ -107,6 +107,14 @@ export async function addToCollection(collectionId, bookId) {
   if (!c.bookIds.includes(bookId)) c.bookIds.push(bookId);
   await db.put('collections', c);
 }
+export async function toggleInCollection(collectionId, bookId) {
+  const c = await db.get('collections', collectionId); if (!c) return false;
+  const i = c.bookIds.indexOf(bookId);
+  if (i >= 0) c.bookIds.splice(i, 1); else c.bookIds.push(bookId);
+  await db.put('collections', c);
+  return i < 0; // true si quedó añadido
+}
+export async function deleteCollection(id) { await db.del('collections', id); }
 
 /* ═════════ Progreso ═════════ */
 export async function getProgress(bookId) {

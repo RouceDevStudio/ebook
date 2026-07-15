@@ -179,33 +179,47 @@ function goToPage(page, animate = 1, dir = 1) {
   if (anim === 'slide') {
     R.page = page; content.style.transition = 'transform .32s cubic-bezier(.22,1,.36,1)'; setPageTransform(content, page); afterPageChange(); return;
   }
-  // realistic flip
-  flipPage(content, page, dir);
+  // realistic flip (pasa-página de libro real) — funciona en reflow y en PDF/cómic
+  flipPage(page, dir);
 }
 
-function flipPage(content, newPage, dir) {
+// Construye la "cara" que gira: en medios (PDF/cómic) clona solo la página
+// actual (una imagen, ligera); en reflow clona el contenido y lo desplaza.
+function buildFace(pageIndex) {
+  if (R.mediaPaged) {
+    const cell = document.querySelector('#rContent .rpage[data-i="' + pageIndex + '"]');
+    const face = cell ? cell.cloneNode(true) : document.createElement('div');
+    face.style.position = 'absolute'; face.style.inset = '0'; face.style.transform = 'none'; face.style.margin = '0';
+    if (!cell) face.style.background = 'var(--r-bg)';
+    return face;
+  }
+  const clone = document.getElementById('rContent').cloneNode(true);
+  clone.style.transition = 'none'; setPageTransform(clone, pageIndex);
+  return clone;
+}
+
+function flipPage(newPage, dir) {
+  const content = document.getElementById('rContent');
   const host = document.getElementById('rHost');
   const oldPage = R.page;
   const flip = document.createElement('div'); flip.className = 'page-flip';
   const face = document.createElement('div'); face.className = 'pf-face';
   const shade = document.createElement('div'); shade.className = 'pf-shade';
-  const clone = content.cloneNode(true);
-  clone.style.transition = 'none';
-  face.appendChild(clone); flip.appendChild(face); flip.appendChild(shade);
+  if (R.mediaPaged) face.style.padding = '0';
+  face.appendChild(buildFace(dir > 0 ? oldPage : newPage));
+  flip.appendChild(face); flip.appendChild(shade);
   host.appendChild(flip);
 
   if (dir > 0) {
-    // avanza: la página vieja gira hacia el lomo (izq), revela la nueva debajo
-    setPageTransform(clone, oldPage);
+    // avanza: la página actual gira hacia el lomo (izq), revela la nueva debajo
     content.style.transition = 'none'; R.page = newPage; setPageTransform(content, newPage);
     flip.style.transform = 'rotateY(0deg)';
-    requestAnimationFrame(() => { flip.style.transition = 'transform .5s cubic-bezier(.4,0,.2,1)'; flip.style.transform = 'rotateY(-175deg)'; shade.style.transition = 'opacity .5s'; shade.style.opacity = '1'; });
+    requestAnimationFrame(() => { flip.style.transition = 'transform .52s cubic-bezier(.4,0,.2,1)'; flip.style.transform = 'rotateY(-178deg)'; shade.style.transition = 'opacity .52s'; shade.style.opacity = '1'; });
   } else {
-    // retrocede: la página nueva se despliega desde el lomo
-    setPageTransform(clone, newPage);
+    // retrocede: la página anterior se despliega desde el lomo
     flip.style.transformOrigin = 'left center';
-    flip.style.transform = 'rotateY(-175deg)';
-    requestAnimationFrame(() => { flip.style.transition = 'transform .5s cubic-bezier(.4,0,.2,1)'; flip.style.transform = 'rotateY(0deg)'; });
+    flip.style.transform = 'rotateY(-178deg)';
+    requestAnimationFrame(() => { flip.style.transition = 'transform .52s cubic-bezier(.4,0,.2,1)'; flip.style.transform = 'rotateY(0deg)'; });
   }
   let finished = false;
   const done = () => {
@@ -215,12 +229,13 @@ function flipPage(content, newPage, dir) {
     flip.remove(); afterPageChange();
   };
   flip.addEventListener('transitionend', done, { once: true });
-  setTimeout(done, 620); // fallback
+  setTimeout(done, 640); // fallback
 }
 
 function afterPageChange() {
   if (!R) return;
   R.pagesReadCount++;
+  if (R.onPageChange) R.onPageChange();
   updateProgressUI();
   saveProgressDebounced();
 }
@@ -311,77 +326,95 @@ function bindSlider(isScroll, hostEl) {
 function restoreScroll(progress) { requestAnimationFrame(() => { const h = document.getElementById('rHost'); h.scrollTop = (progress.percent || 0) * (h.scrollHeight - h.clientHeight); updateProgressUI(); }); }
 function attachScrollTracking(hostEl) { hostEl.addEventListener('scroll', debounce(() => { updateProgressUI(); saveProgressDebounced(); }, 200), { passive: true }); }
 
-/* ═════════ Lector PDF ═════════ */
-async function buildPdfReader(progress) {
-  const { host, book, doc } = R;
-  host.innerHTML = `<div class="reader-canvas-host" id="rCanvasHost"></div>${chrome(book)}`;
-  const ch = document.getElementById('rCanvasHost');
-  R.pdf = doc.pdfDoc; R.numPages = doc.numPages; R.zoom = (progress.pdfZoom || 1);
-  bindChrome(() => {});
-  document.getElementById('tbAa').innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 21l-4-4M11 8v6M8 11h6"/><circle cx="11" cy="11" r="7"/></svg><span>Zoom</span>';
-  document.getElementById('tbAa').onclick = () => pdfZoomSheet(ch);
-  const placeholders = [];
-  for (let i = 1; i <= R.numPages; i++) {
-    const c = document.createElement('canvas'); c.dataset.page = i; c.style.width = '100%'; c.height = 10; ch.appendChild(c); placeholders.push(c);
+/* ═════════ Motor paginado de medios (PDF y cómic) ═════════
+   Una página por pantalla, deslizar/tocar para avanzar, con la MISMA
+   animación de pasa-página de libro real que el modo reflow. */
+function setupMediaPaged(progress, renderCell) {
+  const { host } = R;
+  host.innerHTML = `<div class="reader-page-host" id="rHost"><div class="reader-content media" id="rContent"></div></div>${chrome(R.book)}`;
+  R.mediaPaged = true;
+  const hostEl = document.getElementById('rHost');
+  const content = document.getElementById('rContent');
+  content.style.position = 'absolute'; content.style.top = '0'; content.style.left = '0'; content.style.height = '100%'; content.style.display = 'flex';
+  R.rendered = new Set();
+  R.renderCell = renderCell;
+  const layout = () => {
+    R.pageW = hostEl.clientWidth;
+    content.querySelectorAll('.rpage').forEach((c) => { c.style.width = R.pageW + 'px'; });
+    setPageTransform(content, R.page);
+  };
+  for (let i = 0; i < R.totalPages; i++) {
+    const cell = document.createElement('div'); cell.className = 'rpage'; cell.dataset.i = i;
+    content.appendChild(cell);
   }
-  const obs = new IntersectionObserver((ents) => ents.forEach((e) => { if (e.isIntersecting) { renderPdfPage(parseInt(e.target.dataset.page, 10), e.target); obs.unobserve(e.target); } }), { root: ch, rootMargin: '300px' });
-  placeholders.forEach((c) => obs.observe(c));
-  // progreso
-  ch.addEventListener('scroll', debounce(() => {
-    const pct = ch.scrollHeight > ch.clientHeight ? ch.scrollTop / (ch.scrollHeight - ch.clientHeight) : 0;
-    R.pdfPage = Math.max(1, Math.round(pct * R.numPages));
-    document.getElementById('rPct').textContent = `${R.pdfPage}/${R.numPages} · ${Math.round(pct * 100)}%`;
-    document.getElementById('rSlider').value = Math.round(pct * 1000);
-    saveProgressDebounced();
-  }, 150), { passive: true });
-  document.getElementById('rSlider').oninput = (e) => { const pct = e.target.value / 1000; ch.scrollTop = pct * (ch.scrollHeight - ch.clientHeight); };
-  bindChromeToggleOnTap(ch);
-  requestAnimationFrame(() => { ch.scrollTop = (progress.percent || 0) * (ch.scrollHeight - ch.clientHeight); });
-  R._toc = doc.toc;
+  R.pageW = hostEl.clientWidth;
+  content.querySelectorAll('.rpage').forEach((c) => { c.style.width = R.pageW + 'px'; });
+  R.page = Math.min(R.totalPages - 1, Math.max(0, Math.round((progress.percent || 0) * (R.totalPages - 1))));
+  setPageTransform(content, R.page);
+  bindChrome(() => {});
+  bindReaderGestures(hostEl, false);
+  bindSlider(false, hostEl);
+  R.onPageChange = () => ensureCells();
+  R._resize = debounce(layout, 200); window.addEventListener('resize', R._resize);
+  ensureCells();
+  updateProgressUI();
 }
-async function renderPdfPage(num, canvas) {
-  try {
-    const page = await R.pdf.getPage(num);
-    const host = document.getElementById('rCanvasHost');
-    const baseW = Math.min(host.clientWidth - 10, 900);
-    const vp0 = page.getViewport({ scale: 1 });
-    const scale = (baseW / vp0.width) * (R.zoom || 1) * (window.devicePixelRatio || 1);
-    const vp = page.getViewport({ scale });
-    canvas.width = vp.width; canvas.height = vp.height; canvas.height = vp.height;
-    canvas.style.width = (vp.width / (window.devicePixelRatio || 1)) + 'px';
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-  } catch (_) {}
-}
-function pdfZoomSheet(ch) {
-  R.App.sheet(`<h3>Zoom</h3><div class="field"><input type="range" min="50" max="300" value="${Math.round((R.zoom||1)*100)}" id="_z"><div class="center muted" id="_zv">${Math.round((R.zoom||1)*100)}%</div></div>`);
-  const z = document.getElementById('_z'); const zv = document.getElementById('_zv');
-  z.oninput = () => { zv.textContent = z.value + '%'; };
-  z.onchange = async () => { R.zoom = z.value / 100; ch.querySelectorAll('canvas').forEach((c) => { c.height = 10; }); ch.querySelectorAll('canvas').forEach((c) => renderPdfPage(parseInt(c.dataset.page, 10), c)); saveProgressDebounced(); };
+function ensureCells() {
+  if (!R || !R.renderCell) return;
+  for (let i = R.page - 1; i <= R.page + 2; i++) {
+    if (i < 0 || i >= R.totalPages || R.rendered.has(i)) continue;
+    R.rendered.add(i);
+    R.renderCell(i);
+  }
 }
 
-/* ═════════ Lector IMÁGENES (CBZ) ═════════ */
-function buildImagesReader(progress) {
-  const { host, book, doc } = R;
-  host.innerHTML = `<div class="reader-canvas-host" id="rCanvasHost"></div>${chrome(book)}`;
-  const ch = document.getElementById('rCanvasHost');
-  doc.images.forEach((src, i) => { const img = new Image(); img.loading = 'lazy'; img.src = src; img.dataset.page = i; ch.appendChild(img); });
-  bindChrome(() => {});
-  bindChromeToggleOnTap(ch);
-  ch.addEventListener('scroll', debounce(() => {
-    const pct = ch.scrollHeight > ch.clientHeight ? ch.scrollTop / (ch.scrollHeight - ch.clientHeight) : 0;
-    document.getElementById('rPct').textContent = `${Math.round(pct * (doc.images.length))}/${doc.images.length}`;
-    document.getElementById('rSlider').value = Math.round(pct * 1000);
-    saveProgressDebounced();
-  }, 150), { passive: true });
-  document.getElementById('rSlider').oninput = (e) => { ch.scrollTop = (e.target.value / 1000) * (ch.scrollHeight - ch.clientHeight); };
-  requestAnimationFrame(() => { ch.scrollTop = (progress.percent || 0) * (ch.scrollHeight - ch.clientHeight); });
+/* ═════════ Lector PDF (paginado) ═════════ */
+async function buildPdfReader(progress) {
+  const { doc } = R;
+  R.pdf = doc.pdfDoc; R.numPages = doc.numPages; R.totalPages = doc.numPages; R.zoom = (progress.pdfZoom || 1); R.kind = 'pdf';
+  setupMediaPaged(progress, renderPdfCell);
+  // Reemplaza "Texto" por "Zoom" en la barra
+  const aa = document.getElementById('tbAa');
+  if (aa) { aa.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M11 8v6M8 11h6"/></svg><span>Zoom</span>'; aa.onclick = () => pdfZoomSheet(); }
+  R._toc = doc.toc;
 }
-function bindChromeToggleOnTap(el) {
-  let sy = 0, moved = false;
-  el.addEventListener('touchstart', (e) => { sy = e.touches[0].clientY; moved = false; }, { passive: true });
-  el.addEventListener('touchmove', (e) => { if (Math.abs(e.touches[0].clientY - sy) > 10) moved = true; }, { passive: true });
-  el.addEventListener('touchend', () => { if (!moved) toggleChrome(); }, { passive: true });
-  el.addEventListener('click', (e) => { if (e.target === el) toggleChrome(); });
+async function renderPdfCell(i) {
+  const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
+  if (!cell) return;
+  try {
+    const page = await R.pdf.getPage(i + 1);
+    const vp0 = page.getViewport({ scale: 1 });
+    const fit = (R.pageW || 400) / vp0.width;
+    const scale = fit * (R.zoom || 1) * Math.min(2, window.devicePixelRatio || 1);
+    const vp = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
+    const img = new Image(); img.src = URL.createObjectURL(blob);
+    img.style.width = ((R.zoom || 1) * 100) + '%';
+    cell.innerHTML = ''; cell.appendChild(img);
+    if ((R.zoom || 1) > 1) cell.style.overflow = 'auto'; else cell.style.overflow = 'hidden';
+  } catch (_) { cell.innerHTML = '<div class="muted center" style="margin:auto">·</div>'; }
+}
+function pdfZoomSheet() {
+  R.App.sheet(`<h3>Zoom</h3><div class="field"><input type="range" min="70" max="300" value="${Math.round((R.zoom||1)*100)}" id="_z"><div class="center muted" id="_zv">${Math.round((R.zoom||1)*100)}%</div></div><p class="muted" style="font-size:12px">Con zoom puedes desplazar la página con el dedo.</p>`);
+  const z = document.getElementById('_z'); const zv = document.getElementById('_zv');
+  z.oninput = () => { zv.textContent = z.value + '%'; };
+  z.onchange = async () => { R.zoom = z.value / 100; R.rendered.clear(); document.querySelectorAll('#rContent .rpage').forEach((c) => c.innerHTML = ''); ensureCells(); saveProgressDebounced(); };
+}
+
+/* ═════════ Lector IMÁGENES / cómic (paginado) ═════════ */
+function buildImagesReader(progress) {
+  const { doc } = R;
+  R.totalPages = doc.images.length; R.kind = 'images';
+  setupMediaPaged(progress, (i) => {
+    const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
+    if (!cell || cell.firstChild) return;
+    const img = new Image(); img.src = doc.images[i]; img.style.width = '100%'; img.style.objectFit = 'contain'; img.style.maxHeight = '100%';
+    cell.appendChild(img);
+  });
+  const aa = document.getElementById('tbAa'); if (aa) aa.style.visibility = 'hidden';
 }
 
 /* ═════════ TOC / Tipografía / Tema / Brillo / Notas ═════════ */
@@ -394,7 +427,7 @@ function openToc() {
 }
 function jumpToToc(entry) {
   if (!entry) return;
-  if (R.kind === 'pdf' && entry.page != null) { const ch = document.getElementById('rCanvasHost'); const target = ch.querySelector(`canvas[data-page="${entry.page + 1}"]`); target && target.scrollIntoView(); return; }
+  if (R.mediaPaged) { if (entry.page != null) goToPage(entry.page, 0); return; }
   const content = document.getElementById('rContent'); if (!content) return;
   const sec = content.querySelector(`#ch-${entry.chapterId}`) || (entry.anchor && content.querySelector('#' + CSS.escape(entry.anchor)));
   if (!sec) return;
