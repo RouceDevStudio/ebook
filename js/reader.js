@@ -188,7 +188,10 @@ function setupPaged(hostEl, content, progress) {
 // Reflow: se traslada TODO el contenido en columnas.
 // Medios (PDF/cómic): carrusel — cada página es una capa absoluta que se
 // traslada por su cuenta (evita el bug de pintado de filas flex enormes).
-function isLandscape() { return window.innerWidth > window.innerHeight * 1.15; }
+function isLandscape() {
+  if (document.documentElement.classList.contains('force-portrait')) return false; // bloqueo por software
+  return window.innerWidth > window.innerHeight * 1.15;
+}
 function stepSize() { return (R.mediaPaged && R.spread) ? 2 : 1; }
 function setPageTransform(content, page) {
   if (R.mediaPaged && content.id === 'rContent') {
@@ -311,12 +314,18 @@ function rebuildReflow(progress) {
 }
 
 /* ── Gestos y zonas táctiles (ratón + táctil) ── */
+// Cuando el bloqueo por software rota la app -90°, el eje horizontal del
+// contenido corresponde al eje vertical físico: convertimos coordenadas.
+function rotatedLock() { return document.documentElement.classList.contains('force-portrait') && window.innerWidth > window.innerHeight; }
+function logicalDelta(dxP, dyP) { return rotatedLock() ? { dx: -dyP, dy: dxP } : { dx: dxP, dy: dyP }; }
+function logicalX(clientX, clientY) { return rotatedLock() ? { x: window.innerHeight - clientY, w: window.innerHeight } : { x: clientX, w: window.innerWidth }; }
+
 function bindReaderGestures(hostEl, isScroll) {
   let sx = 0, sy = 0, moved = false, t0 = 0, suppressClick = false;
   hostEl.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; moved = false; t0 = Date.now(); }, { passive: true });
   hostEl.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (Math.abs(t.clientX - sx) > 12 || Math.abs(t.clientY - sy) > 12) moved = true; }, { passive: true });
   hostEl.addEventListener('touchend', (e) => {
-    const t = e.changedTouches[0]; const dx = t.clientX - sx; const dy = t.clientY - sy;
+    const t = e.changedTouches[0]; const { dx, dy } = logicalDelta(t.clientX - sx, t.clientY - sy);
     if (window.getSelection && String(window.getSelection()).length) return;
     if (!isScroll && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) { suppressClick = true; setTimeout(() => (suppressClick = false), 400); dx < 0 ? nextPage() : prevPage(); }
   }, { passive: true });
@@ -326,7 +335,7 @@ function bindReaderGestures(hostEl, isScroll) {
     if (e.target.closest('a, button, .txt-hl')) return;
     if (window.getSelection && String(window.getSelection()).length) return;
     if (isScroll) { toggleChrome(); return; }
-    const x = e.clientX, w = window.innerWidth;
+    const { x, w } = logicalX(e.clientX, e.clientY);
     if (settings.get('tapZones')) {
       if (x < w * 0.28) prevPage();
       else if (x > w * 0.72) nextPage();

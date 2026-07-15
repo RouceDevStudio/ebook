@@ -80,6 +80,7 @@ export const App = {
   /* ── Orientación (evita rotación accidental) ── */
   applyOrientation() {
     const o = settings.get('orientation') || 'portrait';
+    // 1) Intento nativo (funciona en PWA instalada)
     try {
       const so = screen.orientation;
       if (so && so.lock) {
@@ -88,6 +89,9 @@ export const App = {
         else if (so.unlock) so.unlock();
       }
     } catch (_) {}
+    // 2) Bloqueo por software (funciona SIEMPRE, incluso en pestaña del navegador):
+    //    si el dispositivo se pone horizontal, rotamos la app para seguir vertical.
+    document.documentElement.classList.toggle('force-portrait', o === 'portrait');
   },
 
   /* ── Datos ── */

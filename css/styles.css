@@ -737,3 +737,20 @@ input[type="range"]::-moz-range-thumb { background: var(--accent); }
 /* Doble página en horizontal (visor de medios) */
 .reader-content.media.spread .rpage { right: auto; width: 50%; }
 .reader-content.media.spread .rpage[data-i]:nth-child(even) { box-shadow: inset 1px 0 0 color-mix(in srgb, var(--r-fg) 8%, transparent); }
+
+/* ══════════════════════════════════════════════════════════════
+   Bloqueo de orientación por software — mantiene la app VERTICAL
+   aunque el dispositivo se gire (para navegadores que no permiten
+   el bloqueo nativo). Se rota todo el contenido 90°.
+   ══════════════════════════════════════════════════════════════ */
+@media screen and (orientation: landscape) {
+  html.force-portrait { overflow: hidden; }
+  html.force-portrait body {
+    position: fixed; top: 100%; left: 0;
+    width: 100vh; height: 100vw;
+    transform: rotate(-90deg); transform-origin: left top;
+    overflow: hidden;
+  }
+  html.force-portrait #app { height: 100vw; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+  html.force-portrait .bottomnav { position: absolute; }
+}
