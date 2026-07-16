@@ -565,10 +565,62 @@ function ensureCells() {
   }
 }
 
+/* ═════════ Extracción de texto de un PDF → párrafos (para reflujo) ═════════ */
+async function extractPdfText(pdf, numPages) {
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let all = '';
+  let totalChars = 0;
+  for (let i = 1; i <= numPages; i++) {
+    let items;
+    try { const page = await pdf.getPage(i); items = (await page.getTextContent()).items; }
+    catch (_) { continue; }
+    if (!items || !items.length) continue;
+    const pos = items
+      .filter((it) => typeof it.str === 'string')
+      .map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], h: Math.abs(it.transform[3] || it.height || 12) }));
+    if (!pos.length) continue;
+    pos.sort((a, b) => (Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x));
+    // agrupar en líneas por proximidad vertical
+    const lines = []; let cur = null, lastY = null;
+    for (const it of pos) {
+      if (cur && lastY != null && Math.abs(it.y - lastY) <= Math.max(3, it.h * 0.6)) cur.parts.push(it.str);
+      else { cur = { y: it.y, x0: it.x, h: it.h, parts: [it.str] }; lines.push(cur); }
+      lastY = it.y;
+    }
+    const L = lines.map((l) => ({ y: l.y, x0: l.x0, h: l.h, text: l.parts.join('').replace(/\s+/g, ' ').trim() })).filter((l) => l.text);
+    if (!L.length) continue;
+    const leftMin = Math.min(...L.map((l) => l.x0));
+    let buf = '';
+    const flush = () => { if (buf.trim()) { all += `<p>${esc(buf.trim())}</p>`; totalChars += buf.length; buf = ''; } };
+    for (let k = 0; k < L.length; k++) {
+      const l = L[k], prev = L[k - 1];
+      const bigGap = prev && (prev.y - l.y) > l.h * 1.8;      // hueco vertical = nuevo párrafo
+      const indent = (l.x0 - leftMin) > l.h * 0.9;            // sangría = nuevo párrafo
+      if (buf && (bigGap || indent)) flush();
+      if (buf && /[-­]$/.test(buf)) buf = buf.replace(/[-­]$/, '') + l.text;  // une palabra cortada
+      else buf = buf ? buf + ' ' + l.text : l.text;
+    }
+    flush();
+  }
+  if (totalChars < numPages * 40) return null;               // PDF escaneado / sin texto útil
+  return [{ id: 'pdf', html: all }];
+}
+
 /* ═════════ Lector PDF (paginado) ═════════ */
 async function buildPdfReader(progress) {
   const { doc } = R;
   R.pdf = doc.pdfDoc; R.numPages = doc.numPages; R.totalPages = doc.numPages; R.zoom = (progress.pdfZoom || 1); R.kind = 'pdf';
+  // Modo TEXTO (reflujo): si el PDF tiene texto y el ajuste está activo, se
+  // maqueta como ebook para llenar la pantalla sin espacio muerto y con letra
+  // ajustable. Si no hay texto (escaneado), cae al render por página.
+  if (settings.get('pdfReflow') !== false && !R._forcePdfImage) {
+    const t = toast('Preparando texto…', { duration: 60000, icon: '<div class="spinner"></div>' });
+    let chapters = null;
+    try { chapters = await extractPdfText(doc.pdfDoc, doc.numPages); } catch (_) {}
+    t.remove();
+    if (chapters) { R.doc.chapters = chapters; R.kind = 'pdf'; R.pdfReflow = true; buildReflowReader(progress); return; }
+    toast('Este PDF no tiene texto — se muestra como imagen');
+  }
   setupMediaPaged(progress, renderPdfCell);
   R._toc = doc.toc;
 }

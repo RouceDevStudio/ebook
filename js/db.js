@@ -78,6 +78,7 @@ const _defaults = {
   paragraphSpace: 1,
   textIndent: 0,
   pageAnimation: 'curl',   // curl|realistic|slide|scroll|none
+  pdfReflow: true,         // PDF como texto reflujo (llena la pantalla) vs imagen
   brightness: 1,
   warmth: 0,
   nightBrightness: false,
