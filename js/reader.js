@@ -256,8 +256,70 @@ function goToPage(page, animate = 1, dir = 1) {
     content.style.transition = tr; if (R.mediaPaged) setMediaTransition(tr);
     setPageTransform(content, page); afterPageChange(); return;
   }
+  // curl: pliegue de esquina tipo libro/Apple Books (aproximación CSS)
+  if (anim === 'curl') { curlPage(page, dir); return; }
   // realistic flip (pasa-página de libro real) — funciona en reflow y en PDF/cómic
   flipPage(page, dir);
+}
+
+// ── Page-curl: la hoja se pliega desde la esquina inferior derecha mostrando
+//    el reverso (tenue, en espejo) y revela la página siguiente debajo.
+//    Aproximación en CSS acelerada por GPU (transform/opacity); un curl
+//    perfecto tipo shader necesitaría WebGL.
+function curlPage(newPage, dir) {
+  const content = document.getElementById('rContent');
+  const host = document.getElementById('rHost');
+  const oldPage = R.page;
+  const leaf = dir > 0 ? oldPage : newPage;
+  const W = host.clientWidth, H = host.clientHeight, D = W + H;
+
+  // Revela la página destino debajo de inmediato.
+  if (dir > 0) { content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); R.page = newPage; setPageTransform(content, newPage); }
+
+  const wrap = document.createElement('div'); wrap.className = 'page-curl';
+  const pageLayer = document.createElement('div'); pageLayer.className = 'pc-page';
+  pageLayer.appendChild(buildFace(leaf));
+  const fold = document.createElement('div'); fold.className = 'pc-fold';
+  const foldInner = document.createElement('div'); foldInner.className = 'pc-fold-inner';
+  foldInner.appendChild(buildFace(leaf));
+  const foldSheen = document.createElement('div'); foldSheen.className = 'pc-fold-sheen';
+  fold.appendChild(foldInner); fold.appendChild(foldSheen);
+  wrap.appendChild(pageLayer); wrap.appendChild(fold);
+  host.appendChild(wrap);
+
+  const setF = (f) => {
+    f = Math.max(0.001, Math.min(D, f));
+    const c = D - f;
+    // La hoja actual se recorta quitando el triángulo inferior-derecho (revela la siguiente).
+    pageLayer.style.clipPath = `polygon(0 0, 100% 0, 100% ${H - f}px, ${W - f}px ${H}px, 0 ${H}px)`;
+    // El pliegue = ese triángulo reflejado sobre la diagonal (x+y=c).
+    fold.style.clipPath = `polygon(${W - f}px ${H}px, ${W}px ${H - f}px, ${W}px ${H}px)`;
+    fold.style.transform = `matrix(0,-1,-1,0,${c},${c})`;
+    const s = Math.min(1, f / (D * 0.5));           // intensidad de sombra/brillo
+    pageLayer.style.filter = `drop-shadow(${-3 * s}px ${-3 * s}px ${10 * s}px rgba(0,0,0,${0.28 * s}))`;
+    foldSheen.style.opacity = String(0.35 + 0.35 * s);
+  };
+
+  const dur = 560, t0 = performance.now();
+  const from = dir > 0 ? 0 : D, to = dir > 0 ? D : 0;
+  // easeInOutCubic: arranca y termina suave, como levantar una hoja de verdad
+  const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  let finished = false;
+  const finish = () => {
+    if (finished) return; finished = true;
+    wrap.remove();
+    if (!R) return;
+    if (dir < 0) { content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); R.page = newPage; setPageTransform(content, newPage); }
+    afterPageChange();
+  };
+  const frame = (now) => {
+    if (!R || !wrap.isConnected) { finish(); return; }
+    const p = Math.min(1, (now - t0) / dur), e = ease(p);
+    setF(from + (to - from) * e);
+    if (p < 1) requestAnimationFrame(frame); else finish();
+  };
+  setF(from);
+  requestAnimationFrame(frame);
 }
 
 // Construye la "cara" que gira: en medios (PDF/cómic) clona solo la página

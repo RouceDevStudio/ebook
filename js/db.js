@@ -77,7 +77,7 @@ const _defaults = {
   textAlign: 'justify',
   paragraphSpace: 1,
   textIndent: 0,
-  pageAnimation: 'realistic',   // realistic|slide|scroll|none
+  pageAnimation: 'curl',   // curl|realistic|slide|scroll|none
   brightness: 1,
   warmth: 0,
   nightBrightness: false,
