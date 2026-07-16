@@ -971,3 +971,36 @@ body[data-theme="dark"], body[data-theme="amoled"] { --text-faint: #7c7767; }
 }
 @keyframes rshimmer { 0% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
 @media (prefers-reduced-motion: reduce) { .reader-content.media .rpage .rskel { animation: none; } }
+
+/* ══════════════════════════════════════════════════════════════
+   Menú del lector (tres puntos) — rejilla de acciones + lista
+   ══════════════════════════════════════════════════════════════ */
+.rm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 12px; }
+.rm-chip {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  padding: 16px 8px; border: 1px solid var(--border); border-radius: 16px;
+  background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600; text-align: center;
+  transition: transform var(--t-fast, .18s) var(--ease), background var(--t, .25s) var(--ease);
+}
+.rm-chip svg { width: 24px; height: 24px; color: var(--accent); }
+.rm-chip span { line-height: 1.2; }
+.rm-chip:active { transform: scale(.95); background: var(--accent-ghost); }
+@media (hover:hover) { .rm-chip:hover { background: var(--accent-ghost); } }
+
+.rm-list { display: flex; flex-direction: column; gap: 2px; }
+.rm-row {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 15px 14px; border: none; background: var(--surface); color: var(--text);
+  border-radius: 14px; font-size: 15px; font-weight: 500; text-align: left;
+  transition: background var(--t, .25s) var(--ease);
+}
+.rm-row svg { width: 21px; height: 21px; color: var(--text-dim); flex: 0 0 auto; }
+.rm-row span { flex: 1; }
+.rm-row .rm-chev, .rm-row svg:last-child { width: 18px; height: 18px; color: var(--text-faint); }
+.rm-row:active { background: var(--accent-ghost); }
+@media (hover:hover) { .rm-row:hover { background: var(--surface-2); } }
+
+/* Hoja del menú del lector: por encima de la pantalla completa del lector */
+.r-menu-sheet { position: absolute; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center; }
+.r-menu-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.4); animation: fade .25s; }
+.r-menu-sheet .sheet { position: relative; z-index: 1; width: 100%; max-width: 560px; max-height: 84%; overflow-y: auto; }

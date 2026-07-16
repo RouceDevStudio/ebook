@@ -12,7 +12,7 @@ import { storage } from './storage.js';
 import { settings, db, uid } from './db.js';
 import * as models from './models.js';
 import { toast, haptic } from './toast.js';
-import { renderNotesPanel, saveHighlight } from './notes.js';
+import { renderNotesPanel, saveHighlight, notesForBook, exportNotes } from './notes.js';
 
 let R = null; // estado del lector activo
 
@@ -114,7 +114,6 @@ function chrome(book) {
   <div class="reader-pageinfo" id="rPageInfo"></div>
   <div class="reader-chrome reader-bottom" id="rBottom">
     <div class="reader-progress"><input type="range" id="rSlider" min="0" max="1000" value="0"><span class="pct" id="rPct">0%</span></div>
-    <div class="reader-toolbar" id="rToolbar"></div>
   </div>`;
 }
 
@@ -144,10 +143,10 @@ function buildToolbar(reRender) {
 
 function bindChrome(reRender) {
   const $ = (id) => document.getElementById(id);
+  R._reRender = reRender || (() => {});   // lo usa el menú (tipografía, etc.)
   $('rClose').onclick = () => closeReader();
   $('rMenu').onclick = () => openReaderMenu();
   $('rBookmark').onclick = () => addBookmark();
-  buildToolbar(reRender);
   applyBrightness();
 }
 
@@ -937,21 +936,117 @@ async function addBookmark() {
   haptic(10);
 }
 
+const RM_I = {
+  text: '<svg viewBox="0 0 24 24"><path d="M4 7V5h16v2M9 5v14M7 19h4"/></svg>',
+  bookmark: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
+  notes: '<svg viewBox="0 0 24 24"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/></svg>',
+  font: '<svg viewBox="0 0 24 24"><path d="M4 18l5-12 5 12M6 14h6"/><path d="M15 18l3-8 3 8M16.2 15.5h3.6"/></svg>',
+  anim: '<svg viewBox="0 0 24 24"><path d="M5 4h9l5 5v11H5z"/><path d="M14 4v5h5"/><path d="M8 13c3 2 5 2 8 0"/></svg>',
+  design: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h8"/></svg>',
+  night: '<svg viewBox="0 0 24 24"><path d="M20 14A8 8 0 1110 4a6 6 0 0010 10z"/></svg>',
+  tts: '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15 9a3 3 0 010 6M18 6a7 7 0 010 12"/></svg>',
+  translate: '<svg viewBox="0 0 24 24"><path d="M4 5h8M8 3v2c0 4-2 7-5 8M5 9c0 3 3 5 6 6"/><path d="M13 20l4-9 4 9M14.5 17h5"/></svg>',
+  toc: '<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4"/></svg>',
+  goto: '<svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11H4z"/><path d="M9 13h6M13 10l3 3-3 3"/></svg>',
+  export: '<svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M4 15v5h16v-5"/></svg>',
+  config: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 00-1.7-1L14.6 2H9.4L9 4.5a7 7 0 00-1.7 1l-2.3-1-2 3.4L5 11a7 7 0 000 2l-2 1.6 2 3.4 2.3-1a7 7 0 001.7 1L9.4 22h5.2l.4-2.5a7 7 0 001.7-1l2.3 1 2-3.4-2-1.6a7 7 0 00.1-1z"/></svg>',
+  chev: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
+};
+
 function openReaderMenu() {
-  R.App.sheet(`<h3>${esc(R.book.title)}</h3><p class="sub">${esc(R.book.author || '')}</p>
-    <div class="menu-list">
-      <button data-a="focus"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4"/></svg>Modo concentración</button>
-      <button data-a="finish"><svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>Marcar como terminado</button>
-      <button data-a="tts"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15 9a3 3 0 010 6"/></svg>Leer en voz alta (TTS)</button>
-      <button data-a="info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4"/></svg>Detalles del libro</button>
-    </div>`);
-  document.getElementById('modalHost').querySelectorAll('[data-a]').forEach((b) => b.onclick = async () => {
-    const a = b.dataset.a; R.App.closeModal();
-    if (a === 'focus') toggleFocus();
-    else if (a === 'finish') { await models.setStatus(R.bookId, 'finished'); toast('¡Terminado! 🎉'); }
-    else if (a === 'tts') startTTS();
-    else if (a === 'info') showBookInfo();
+  const isText = !R.mediaPaged;
+  const hasToc = (R.doc.toc || []).length > 0;
+  const chip = (a, ic, l) => `<button class="rm-chip" data-a="${a}">${ic}<span>${l}</span></button>`;
+  const rowsHtml = [
+    hasToc ? ['toc', 'Tabla de contenido'] : null,
+    ['info', 'Información del libro'],
+    ['goto', 'Ir a página'],
+    ['export', 'Exportar notas'],
+    ['config', 'Configuración'],
+  ].filter(Boolean).map(([a, l]) => `<button class="rm-row" data-a="${a}">${RM_I[a] || ''}<span>${l}</span>${RM_I.chev}</button>`).join('');
+  const sheet = readerSheet(`
+    <div class="rm-grid">
+      ${isText ? chip('text', RM_I.text, 'Ajustes de texto') : ''}
+      ${chip('bookmark', RM_I.bookmark, 'Marcador')}
+      ${isText ? chip('notes', RM_I.notes, 'Notas') : ''}
+      ${isText ? chip('font', RM_I.font, 'Tipografía') : ''}
+      ${chip('anim', RM_I.anim, 'Animación')}
+      ${chip('design', RM_I.design, 'Diseño')}
+      ${chip('night', RM_I.night, 'Modo noche')}
+      ${isText ? chip('tts', RM_I.tts, 'Leer en voz alta') : ''}
+      ${isText ? chip('translate', RM_I.translate, 'Traducir') : ''}
+    </div>
+    <div class="rm-list">${rowsHtml}</div>`);
+  sheet.querySelectorAll('[data-a]').forEach((b) => b.onclick = async () => {
+    const a = b.dataset.a; closeReaderSheet();
+    switch (a) {
+      case 'text': openTypography(R._reRender); break;
+      case 'font': openTypography(R._reRender); break;
+      case 'bookmark': addBookmark(); break;
+      case 'notes': openNotes(); break;
+      case 'anim': animationSheet(); break;
+      case 'design': openThemePicker(); break;
+      case 'night': nightToggle(); break;
+      case 'tts': startTTS(); break;
+      case 'translate': translateSheet(); break;
+      case 'toc': openToc(); break;
+      case 'info': showBookInfo(); break;
+      case 'goto': goToPageSheet(); break;
+      case 'export': { const notes = await notesForBook(R.bookId); if (!notes || !notes.length) return toast('No hay notas ni subrayados para exportar'); exportNotes(R.book, notes); break; }
+      case 'config': { const App = R.App; closeReader(); App.go('settings'); break; }
+    }
   });
+}
+
+/* Cambia entre tema claro (sepia) y oscuro (negro) de un toque */
+function nightToggle() {
+  const dark = ['black', 'amoled', 'gray'].includes(R.settings.readerTheme);
+  const next = dark ? 'sepia' : 'black';
+  R.settings.readerTheme = next; R.host.dataset.rtheme = next;
+  setReaderThemeColor(next); persistReaderSetting('readerTheme', next);
+  toast(dark ? '☀️ Modo día' : '🌙 Modo noche');
+}
+
+/* Elegir animación de pasar página */
+function animationSheet() {
+  const s = R.settings;
+  const opts = [['curl', 'Pliegue de esquina'], ['realistic', 'Libro real'], ['slide', 'Deslizar'], ['scroll', 'Continuo'], ['none', 'Ninguna']];
+  rSheet('Animación de página', `<div class="menu-list">${opts.map(([v, l]) =>
+    `<button data-a="${v}">${l}${s.pageAnimation === v ? ' <span style="margin-left:auto;color:var(--accent)">✓</span>' : ''}</button>`).join('')}</div>`);
+  document.querySelectorAll('#rSheet [data-a]').forEach((b) => b.onclick = () => {
+    s.pageAnimation = b.dataset.a; persistReaderSetting('pageAnimation', b.dataset.a); closeRSheet();
+    if (!R.mediaPaged) rebuildReflow({ percent: currentPercent() });
+  });
+}
+
+/* Ir a una página concreta */
+function goToPageSheet() {
+  rSheet('Ir a página', `<div class="field"><label>Página (1–${R.totalPages})</label>
+    <input type="number" id="gpN" min="1" max="${R.totalPages}" value="${R.page + 1}"></div>
+    <button class="btn block" id="gpGo">Ir</button>`);
+  const go = () => { const n = Math.max(1, Math.min(R.totalPages, parseInt(document.getElementById('gpN').value, 10) || 1)); closeRSheet(); goToPage(n - 1, 0); };
+  document.getElementById('gpGo').onclick = go;
+  document.getElementById('gpN').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+}
+
+/* Traducir la selección (o el texto visible) al español */
+async function translateSheet() {
+  let text = (window.getSelection && String(window.getSelection()).trim()) || '';
+  if (!text) { const c = document.getElementById('rContent'); text = (c ? (c.innerText || '') : '').trim().slice(0, 900); }
+  if (!text) return toast('Selecciona un texto para traducir');
+  text = text.slice(0, 1500);
+  rSheet('Traducir', '<div class="center" style="padding:40px"><div class="spinner" style="margin:auto"></div></div>');
+  try {
+    const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=' + encodeURIComponent(text));
+    const j = await r.json();
+    const out = (j[0] || []).map((seg) => seg[0]).join('');
+    const body = document.querySelector('#rSheet .r-sheet-body');
+    if (body) body.innerHTML = `<p class="muted" style="font-size:12px;margin:0 0 4px">Original</p><p style="margin:0 0 16px">${esc(text)}</p><p class="muted" style="font-size:12px;margin:0 0 4px">Traducción · español</p><p style="margin:0">${esc(out || '—')}</p>`;
+  } catch (e) {
+    const body = document.querySelector('#rSheet .r-sheet-body');
+    if (body) body.innerHTML = '<p class="muted center" style="padding:30px">No se pudo traducir (sin conexión o servicio no disponible).</p>';
+  }
 }
 function showBookInfo() {
   const b = R.book;
@@ -988,6 +1083,18 @@ function rSheet(title, bodyHtml) {
   document.getElementById('rsClose').onclick = () => closeRSheet();
 }
 function closeRSheet() { document.getElementById('rSheet')?.remove(); }
+
+/* Hoja inferior DENTRO del lector (por encima de la pantalla completa; el
+   modal global queda por debajo del lector y no se vería). */
+function readerSheet(html) {
+  closeReaderSheet();
+  const wrap = document.createElement('div'); wrap.id = 'rMenuSheet'; wrap.className = 'r-menu-sheet';
+  wrap.innerHTML = `<div class="r-menu-scrim"></div><div class="sheet"><div class="sheet-grip"></div>${html}</div>`;
+  R.host.appendChild(wrap);
+  wrap.querySelector('.r-menu-scrim').onclick = () => closeReaderSheet();
+  return wrap;
+}
+function closeReaderSheet() { document.getElementById('rMenuSheet')?.remove(); }
 
 /* ── Persistencia ── */
 function persistReaderSetting(key, value) { settings.set(key, value); }

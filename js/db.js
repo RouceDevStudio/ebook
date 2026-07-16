@@ -70,7 +70,7 @@ const _defaults = {
   readerTheme: 'sepia',
   fontSize: 19,
   lineHeight: 1.65,
-  margin: 24,
+  margin: 18,   // márgenes más ajustados: se gana una línea por pantalla
   fontFamily: '"Literata", Georgia, "Times New Roman", serif',
   wordSpacing: 0,
   letterSpacing: 0,
