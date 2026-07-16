@@ -190,8 +190,14 @@ function setupPaged(hostEl, content, progress) {
     // Full-bleed: el texto ocupa el 100% del contenedor; solo un margen de
     // lectura (m), sin "escritorio" ni hoja flotante que desperdicie espacio.
     const pad = m;
+    const viewH = hostEl.clientHeight;
+    // En horizontal, cada página es más alta que la pantalla: se lee con scroll
+    // vertical y se pasa a la siguiente con la animación de pliegue.
+    const pageH = isLandscape() ? Math.round(viewH * 1.9) : viewH;
+    R.viewH = viewH; R.vMax = Math.max(0, pageH - viewH);
+    R.vScroll = Math.min(R.vScroll || 0, R.vMax);
     content.style.width = W + 'px';
-    content.style.height = hostEl.clientHeight + 'px';
+    content.style.height = pageH + 'px';
     content.style.paddingLeft = pad + 'px';
     content.style.paddingRight = pad + 'px';
     content.style.paddingTop = `calc(env(safe-area-inset-top) + ${m}px)`;
@@ -233,8 +239,9 @@ function setPageTransform(content, page) {
   } else {
     // translateZ(0) fuerza una capa GPU: evita el bug de Chromium por el que
     // las columnas CSS trasladadas se posicionan pero NO se re-pintan (páginas
-    // en blanco al avanzar en el reflujo).
-    content.style.transform = `translateX(${-page * R.pageW}px) translateZ(0)`;
+    // en blanco al avanzar en el reflujo). translateY = scroll vertical de la
+    // página alta en horizontal.
+    content.style.transform = `translateX(${-page * R.pageW}px) translateY(${-(R.vScroll || 0)}px) translateZ(0)`;
   }
 }
 function setMediaTransition(t) { document.querySelectorAll('#rContent .rpage').forEach((c) => { c.style.transition = t; }); }
@@ -245,6 +252,7 @@ function goToPage(page, animate = 1, dir = 1) {
   // renderiza la página destino cuanto antes (evita ver blanco tras el giro)
   if (R.renderCell && !R.rendered.has(page)) { R.rendered.add(page); R.renderCell(page); }
   if (page === R.page && animate) return;
+  if (page !== R.page) R.vScroll = 0;   // cada página empieza arriba (scroll vertical)
   // En doble página, el giro 3D de una sola hoja no aplica: usamos deslizamiento.
   const anim = (R.mediaPaged && R.spread) ? 'slide' : R.settings.pageAnimation;
   if (!animate || anim === 'none') { R.page = page; content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); setPageTransform(content, page); afterPageChange(); return; }
@@ -419,14 +427,37 @@ function logicalDelta(dxP, dyP) { return rotatedLock() ? { dx: -dyP, dy: dxP } :
 function logicalX(clientX, clientY) { return rotatedLock() ? { x: window.innerHeight - clientY, w: window.innerHeight } : { x: clientX, w: window.innerWidth }; }
 
 function bindReaderGestures(hostEl, isScroll) {
-  let sx = 0, sy = 0, moved = false, t0 = 0, suppressClick = false;
-  hostEl.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; moved = false; t0 = Date.now(); }, { passive: true });
-  hostEl.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (Math.abs(t.clientX - sx) > 12 || Math.abs(t.clientY - sy) > 12) moved = true; }, { passive: true });
+  let sx = 0, sy = 0, moved = false, t0 = 0, suppressClick = false, lastY = 0, vDrag = false;
+  // Desplaza verticalmente la página alta (reflujo en horizontal).
+  const canVScroll = () => !isScroll && !R.mediaPaged && (R.vMax || 0) > 0;
+  const applyVScroll = () => {
+    const content = document.getElementById('rContent');
+    if (content) content.style.transform = `translateX(${-R.page * R.pageW}px) translateY(${-(R.vScroll || 0)}px) translateZ(0)`;
+  };
+  hostEl.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; lastY = t.clientY; moved = false; vDrag = false; t0 = Date.now(); }, { passive: true });
+  hostEl.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    const adx = Math.abs(t.clientX - sx), ady = Math.abs(t.clientY - sy);
+    if (adx > 12 || ady > 12) moved = true;
+    if (canVScroll() && ady > adx) {                 // arrastre vertical → scroll de la página
+      vDrag = true;
+      R.vScroll = Math.max(0, Math.min(R.vMax, (R.vScroll || 0) - (t.clientY - lastY)));
+      applyVScroll();
+    }
+    lastY = t.clientY;
+  }, { passive: true });
   hostEl.addEventListener('touchend', (e) => {
     const t = e.changedTouches[0]; const { dx, dy } = logicalDelta(t.clientX - sx, t.clientY - sy);
     if (window.getSelection && String(window.getSelection()).length) return;
+    if (vDrag) { suppressClick = true; setTimeout(() => (suppressClick = false), 300); return; } // fue scroll, no pasa página
     if (!isScroll && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) { suppressClick = true; setTimeout(() => (suppressClick = false), 400); dx < 0 ? nextPage() : prevPage(); }
   }, { passive: true });
+  // Rueda del ratón (escritorio): scroll de la página alta en horizontal
+  hostEl.addEventListener('wheel', (e) => {
+    if (!canVScroll()) return;
+    R.vScroll = Math.max(0, Math.min(R.vMax, (R.vScroll || 0) + e.deltaY));
+    applyVScroll(); e.preventDefault();
+  }, { passive: false });
   // Zonas por clic: cubre ratón y el tap que sigue al touch
   hostEl.addEventListener('click', (e) => {
     if (suppressClick) return;
