@@ -93,13 +93,11 @@ function getDeskMargin(el) {
 /* Capa decorativa que convierte la superficie en un LIBRO real:
    hoja(s) de papel, sombra de canto, lomo central y pliegue en horizontal. */
 function syncReflowBook(hostEl, isScroll) {
-  let b = document.getElementById('rBook');
-  if (isScroll) { if (b) b.remove(); return; }
-  if (!b) {
-    b = document.createElement('div'); b.id = 'rBook'; b.className = 'reader-book paper';
-    const c = hostEl.querySelector('#rContent');
-    hostEl.insertBefore(b, c);   // detrás del texto (el contenido es transparente)
-  }
+  // Reflujo a pantalla completa: sin hoja/escritorio (evita sombra y márgenes
+  // que desperdician espacio). El fondo del host es el papel de lectura.
+  const b = document.getElementById('rBook');
+  if (b) b.remove();
+  hostEl.style.background = 'var(--r-bg)';
 }
 
 function chrome(book) {
@@ -189,25 +187,20 @@ function setupPaged(hostEl, content, progress) {
   const layout = () => {
     const W = hostEl.clientWidth;
     const m = R.settings.margin;
-    const two = false;                            // una sola página también en horizontal (a petición)
-    const desk = getDeskMargin(hostEl);           // margen de escritorio alrededor del libro
-    const pad = desk + m;                          // borde de hoja + margen de texto
+    // Full-bleed: el texto ocupa el 100% del contenedor; solo un margen de
+    // lectura (m), sin "escritorio" ni hoja flotante que desperdicie espacio.
+    const pad = m;
     content.style.width = W + 'px';
     content.style.height = hostEl.clientHeight + 'px';
     content.style.paddingLeft = pad + 'px';
     content.style.paddingRight = pad + 'px';
-    if (two) {
-      // Dos columnas pegadas al lomo central: cada una cae sobre su hoja.
-      content.style.columnGap = (2 * m) + 'px';
-      content.style.columnWidth = ((W - 2 * pad - 2 * m) / 2) + 'px';
-    } else {
-      // Una columna por pantalla: el hueco = 2·pad para que el PASO entre
-      // columnas (colW + gap) sea exactamente W y NO se cuele la siguiente.
-      content.style.columnGap = (2 * pad) + 'px';
-      content.style.columnWidth = (W - 2 * pad) + 'px';
-    }
+    content.style.paddingTop = `calc(env(safe-area-inset-top) + ${m}px)`;
+    content.style.paddingBottom = `calc(env(safe-area-inset-bottom) + ${m}px)`;
+    // Una columna por pantalla: el hueco = 2·pad para que el PASO entre
+    // columnas (colW + gap) sea exactamente W y NO se cuele la siguiente.
+    content.style.columnGap = (2 * pad) + 'px';
+    content.style.columnWidth = (W - 2 * pad) + 'px';
     content.style.setProperty('--r-margin', '0px');
-    document.getElementById('rBook')?.classList.toggle('spread', two);
     R.pageW = W;
     // recalcula tras layout
     requestAnimationFrame(() => {
