@@ -489,9 +489,10 @@ function toggleChrome(force) {
   const vis = R.chromeVisible;
   document.getElementById('rTop')?.classList.toggle('hide', !vis);
   document.getElementById('rBottom')?.classList.toggle('hide', !vis);
-  // El indicador persistente se oculta cuando la barra inferior está visible (evita solaparse)
-  document.getElementById('rPageInfo')?.classList.toggle('hide', vis);
-  document.getElementById('rRunhead')?.classList.toggle('hide', vis);
+  // Inmersión total: al ocultar los controles queda SOLO el texto (el número de
+  // página y el encabezado aparecen únicamente con el toque, junto al chrome).
+  document.getElementById('rPageInfo')?.classList.toggle('hide', !vis);
+  document.getElementById('rRunhead')?.classList.toggle('hide', !vis);
 }
 // Modo inmersivo: muestra los controles un momento al abrir y luego los oculta.
 function startImmersive() {
