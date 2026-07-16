@@ -510,15 +510,18 @@ async function renderPdfCell(i) {
   try {
     const hostEl = document.getElementById('rHost');
     const slotW = (R.pageW || hostEl?.clientWidth || 400) / (R.spread ? 2 : 1);
-    const pw = slotW;                                          // llenar TODA la ranura
+    const pw = slotW;
     const ph = (hostEl?.clientHeight || 600);
     const zoom = R.zoom || 1;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const page = await R.pdf.getPage(i + 1);
     const vp0 = page.getViewport({ scale: 1 });
-    // "cover": la página LLENA la pantalla (se recorta lo que sobra)
-    const coverFit = Math.max(pw / vp0.width, ph / vp0.height);
-    let renderScale = coverFit * zoom * dpr;
+    // Legibilidad ante todo: en una sola hoja se ajusta al ANCHO (palabras
+    // completas; scroll vertical si la hoja es más alta que la pantalla). En
+    // doble página (horizontal) cabe la hoja ENTERA en su mitad, libro abierto.
+    const fitW = pw / vp0.width, fitH = ph / vp0.height;
+    const fit = R.spread ? Math.min(fitW, fitH) : fitW;
+    let renderScale = fit * zoom * dpr;
     // límite de memoria: ninguna dimensión del lienzo supera 4096 px
     const maxDim = 4096, wPx = vp0.width * renderScale, hPx = vp0.height * renderScale;
     if (Math.max(wPx, hPx) > maxDim) renderScale *= maxDim / Math.max(wPx, hPx);
@@ -528,12 +531,23 @@ async function renderPdfCell(i) {
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
     const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
     if (!R || !document.querySelector('#rContent .rpage[data-i="' + i + '"]')) return; // lector cerrado
-    const cssW = Math.round(vp0.width * coverFit * zoom); // tamaño en px CSS
+    const cssW = Math.round(vp0.width * fit * zoom); // tamaño en px CSS
     const img = new Image();
     img.onload = () => { if (cell.isConnected) { cell.innerHTML = ''; cell.appendChild(img); } };
     img.src = URL.createObjectURL(blob);
-    if (zoom > 1) { img.style.width = cssW + 'px'; img.style.height = 'auto'; img.style.objectFit = 'fill'; img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; cell.style.overflow = 'auto'; }
-    else { img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'cover'; img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; cell.style.overflow = 'hidden'; }
+    if (zoom > 1) {                       // zoom manual: desplazamiento libre
+      img.style.width = cssW + 'px'; img.style.height = 'auto'; img.style.objectFit = 'fill';
+      img.style.maxWidth = 'none'; img.style.maxHeight = 'none';
+      cell.style.overflow = 'auto';
+    } else if (R.spread) {                // doble página: hoja entera centrada
+      img.style.width = 'auto'; img.style.height = 'auto'; img.style.objectFit = 'contain';
+      img.style.maxWidth = '100%'; img.style.maxHeight = '100%';
+      cell.style.overflow = 'hidden';
+    } else {                              // una hoja: al ancho + scroll vertical
+      img.style.width = '100%'; img.style.height = 'auto'; img.style.objectFit = 'fill';
+      img.style.maxWidth = 'none'; img.style.maxHeight = 'none';
+      cell.style.overflowX = 'hidden'; cell.style.overflowY = 'auto';
+    }
   } catch (e) { R.rendered.delete(i); cell.innerHTML = '<div class="muted center" style="margin:auto;font-size:12px">No se pudo mostrar esta página</div>'; }
 }
 function pdfZoomSheet() {
