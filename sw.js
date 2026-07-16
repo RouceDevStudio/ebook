@@ -4,7 +4,7 @@
  * así que el SW solo cachea la carcasa de la app y assets.
  * Actualizaciones silenciosas: skipWaiting + clients.claim.
  */
-const VERSION = 'coral-v1.7.0';
+const VERSION = 'coral-v1.8.0';
 const SHELL_CACHE = `shell-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const COVER_CACHE = 'coral-covers';
@@ -124,10 +124,10 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const cache = await caches.open(SHELL_CACHE);
     const hit = await cache.match(req);
+    // stale-while-revalidate REAL: se guarda la copia fresca en la MISMA caché
+    // que se lee, de modo que la próxima carga sirva ya el código actualizado.
     const fetchPromise = fetch(req).then((res) => {
-      if (res && res.ok) {
-        caches.open(RUNTIME_CACHE).then((rc) => rc.put(req, res.clone()));
-      }
+      if (res && res.ok) cache.put(req, res.clone());
       return res;
     }).catch(() => hit);
     return hit || fetchPromise;
