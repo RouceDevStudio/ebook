@@ -558,7 +558,7 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
   text-align: var(--r-align, justify); hyphens: auto; column-gap: 0;
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
-.reader-content p { margin: 0 0 var(--r-pspace, 1em); text-indent: var(--r-indent, 0); orphans: 2; widows: 2; }
+.reader-content p { margin: 0 0 var(--r-pspace, 1em); text-indent: var(--r-indent, 0); orphans: 2; widows: 2; overflow-wrap: break-word; word-break: normal; }
 /* Capitular en el primer párrafo de cada capítulo (solo reflow) */
 .reader-content:not(.media) > section > p:first-of-type::first-letter {
   font-size: 3.1em; line-height: .78; float: left; padding: .02em .1em 0 0; font-weight: 600;
@@ -569,7 +569,10 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 .reader-content section:first-child { break-before: auto; }
 .reader-content h1, .reader-content h2, .reader-content h3 { line-height: 1.25; }
 .reader-content img { max-width: 100%; height: auto; margin: 1em auto; border-radius: 4px; }
-.reader-content.paged { column-width: var(--col-w); column-fill: auto; height: 100%; }
+/* Paginado: el contenido deja ver sus columnas (overflow visible) y el recorte
+   lo hace el contenedor #rHost. Con overflow:hidden aquí, al trasladar el
+   contenido el recorte se movía con él y dejaba las páginas 2+ en blanco. */
+.reader-content.paged { column-width: var(--col-w); column-fill: auto; height: 100%; overflow: visible; }
 
 /* touch zones */
 .tap-zones { position: absolute; inset: 0; display: flex; z-index: 3; }
