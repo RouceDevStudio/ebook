@@ -46,6 +46,10 @@ export async function openReader(bookId, App) {
   models.startSession(bookId, progress.percent || 0);
   wakeLock(true);
 
+  // Dentro del lector SÍ permitimos girar: en horizontal aparece el libro
+  // abierto (dos hojas). El bloqueo vertical global se restaura al cerrar.
+  allowReaderRotation();
+
   if (doc.kind === 'pdf') buildPdfReader(progress);
   else if (doc.kind === 'images') buildImagesReader(progress);
   else buildReflowReader(progress);
@@ -73,6 +77,12 @@ function applyVars(el, s) {
   el.style.setProperty('--r-align', s.textAlign);
   el.style.setProperty('--r-pspace', s.paragraphSpace + 'em');
   el.style.setProperty('--r-indent', s.textIndent + 'em');
+}
+
+/* El lector permite girar aunque la app esté bloqueada en vertical. */
+function allowReaderRotation() {
+  document.documentElement.classList.remove('force-portrait');
+  try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch (_) {}
 }
 
 /* Margen del "escritorio" (desde CSS) para alinear las columnas con las hojas. */
@@ -774,6 +784,7 @@ async function closeReader() {
   R.host.hidden = true; R.host.innerHTML = '';
   document.documentElement.style.overflow = '';
   const App = R.App; R = null;
+  App.applyOrientation && App.applyOrientation();   // restaura el bloqueo vertical global
   await App.refresh(); App.render();
 }
 

@@ -626,13 +626,16 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 .dim-layer { background: #000; opacity: 0; }
 .warm-layer { background: #ff8a00; mix-blend-mode: multiply; opacity: 0; }
 
-/* PDF / cómic — carrusel: cada página es una capa absoluta a pantalla completa */
+/* PDF / cómic — carrusel: cada página es una HOJA sobre el escritorio */
 .reader-content.media { padding: 0; }
 .rpage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
-  background: var(--r-bg); padding: calc(env(safe-area-inset-top) + 14px) 12px calc(env(safe-area-inset-bottom) + 22px);
+  background: transparent; padding: calc(env(safe-area-inset-top) + var(--r-desk-m,12px) + 4px) calc(var(--r-desk-m,12px) + 4px) calc(env(safe-area-inset-bottom) + var(--r-desk-m,12px) + 10px);
   box-sizing: border-box; will-change: transform; backface-visibility: hidden; }
-.rpage img, .rpage canvas { display: block; margin: auto; max-width: 100%; max-height: 100%; border-radius: 4px;
-  box-shadow: 0 6px 30px -8px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.18); background: #fff; }
+/* en doble página, cada hoja pega su borde interior al lomo central */
+.reader-content.media.spread .rpage[data-i]:nth-child(odd) { padding-right: 3px; }  /* hoja izquierda */
+.reader-content.media.spread .rpage[data-i]:nth-child(even) { padding-left: 3px; }  /* hoja derecha */
+.rpage img, .rpage canvas { display: block; margin: auto; max-width: 100%; max-height: 100%; border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.4) inset, 0 22px 48px -22px rgba(0,0,0,.6), 0 8px 18px -10px rgba(0,0,0,.42); background: #fff; }
 /* PDF / comic canvas mode (legacy continuo, por si se reutiliza) */
 .reader-canvas-host { position: absolute; inset: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0; -webkit-overflow-scrolling: touch; }
 .reader-canvas-host canvas, .reader-canvas-host img { max-width: 100%; box-shadow: var(--shadow); background: #fff; }
