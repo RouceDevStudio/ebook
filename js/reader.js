@@ -510,51 +510,86 @@ async function buildPdfReader(progress) {
   setupMediaPaged(progress, renderPdfCell);
   R._toc = doc.toc;
 }
+// Detecta el recuadro de CONTENIDO (recorta márgenes en blanco/transparentes).
+// Devuelve fracciones [0..1] de la página, o null si no se puede analizar.
+function detectContentBox(canvas) {
+  try {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const w = canvas.width, h = canvas.height;
+    const data = ctx.getImageData(0, 0, w, h).data;
+    const o0 = 0;                                   // esquina sup-izq = fondo
+    const br = data[o0], bgc = data[o0 + 1], bb = data[o0 + 2], ba = data[o0 + 3];
+    const transparentBg = ba < 16;
+    const thr = 30;
+    const isInk = (o) => {
+      const a = data[o + 3];
+      if (transparentBg) return a > 16;             // fondo transparente → tinta = algo pintado
+      if (a < 16) return false;
+      return Math.abs(data[o] - br) > thr || Math.abs(data[o + 1] - bgc) > thr || Math.abs(data[o + 2] - bb) > thr;
+    };
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      const row = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        if (isInk(row + x * 4)) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+      }
+    }
+    if (maxX < 0) return null;                       // página en blanco
+    const padX = w * 0.014, padY = h * 0.014;        // respiro mínimo alrededor
+    minX = Math.max(0, minX - padX); minY = Math.max(0, minY - padY);
+    maxX = Math.min(w, maxX + padX); maxY = Math.min(h, maxY + padY);
+    return { x: minX / w, y: minY / h, w: (maxX - minX) / w, h: (maxY - minY) / h };
+  } catch (_) { return null; }                       // canvas contaminado, etc.
+}
+
 async function renderPdfCell(i) {
   const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
   if (!cell) return;
-  if (!cell.querySelector('img')) cell.innerHTML = '<div class="spinner"></div>';
+  if (!cell.querySelector('canvas')) cell.innerHTML = '<div class="spinner"></div>';
   try {
     const hostEl = document.getElementById('rHost');
-    const slotW = (R.pageW || hostEl?.clientWidth || 400) / (R.spread ? 2 : 1);
-    const pw = slotW;
-    const ph = (hostEl?.clientHeight || 600);
+    const pw = (R.pageW || hostEl?.clientWidth || 400);
     const zoom = R.zoom || 1;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const page = await R.pdf.getPage(i + 1);
     const vp0 = page.getViewport({ scale: 1 });
-    // Legibilidad ante todo: en una sola hoja se ajusta al ANCHO (palabras
-    // completas; scroll vertical si la hoja es más alta que la pantalla). En
-    // doble página (horizontal) cabe la hoja ENTERA en su mitad, libro abierto.
-    const fitW = pw / vp0.width, fitH = ph / vp0.height;
-    const fit = R.spread ? Math.min(fitW, fitH) : fitW;
-    let renderScale = fit * zoom * dpr;
-    // límite de memoria: ninguna dimensión del lienzo supera 4096 px
-    const maxDim = 4096, wPx = vp0.width * renderScale, hPx = vp0.height * renderScale;
-    if (Math.max(wPx, hPx) > maxDim) renderScale *= maxDim / Math.max(wPx, hPx);
+
+    // ── Recorte de márgenes (una vez por página, cacheado): render pequeño +
+    //    detección del recuadro de contenido, para que el TEXTO llene el ancho.
+    let box = (R._trimBoxes ||= {})[i];
+    if (!box) {
+      const detS = 520 / vp0.width;
+      const dvp = page.getViewport({ scale: detS });
+      const dc = document.createElement('canvas');
+      dc.width = Math.max(1, Math.round(dvp.width)); dc.height = Math.max(1, Math.round(dvp.height));
+      await page.render({ canvasContext: dc.getContext('2d', { willReadFrequently: true }), viewport: dvp }).promise;
+      box = detectContentBox(dc) || { x: 0, y: 0, w: 1, h: 1 };
+      // si el recorte es minúsculo (falso positivo), usa la página entera
+      if (box.w < 0.4 || box.h < 0.2) box = { x: 0, y: 0, w: 1, h: 1 };
+      R._trimBoxes[i] = box;
+    }
+    const cx = box.x * vp0.width, cy = box.y * vp0.height;
+    const cw = box.w * vp0.width, ch = box.h * vp0.height;
+
+    // escala para que el CONTENIDO (no la hoja) llene el ancho, más el zoom manual
+    const displayScale = (pw / cw) * zoom;
+    let renderScale = displayScale * dpr;
+    const maxDim = 4096;
+    const big = Math.max(vp0.width, vp0.height) * renderScale;
+    if (big > maxDim) renderScale *= maxDim / big;
     const vp = page.getViewport({ scale: renderScale });
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(vp.width)); canvas.height = Math.max(1, Math.round(vp.height));
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
     if (!R || !document.querySelector('#rContent .rpage[data-i="' + i + '"]')) return; // lector cerrado
-    const cssW = Math.round(vp0.width * fit * zoom); // tamaño en px CSS
-    const img = new Image();
-    img.onload = () => { if (cell.isConnected) { cell.innerHTML = ''; cell.appendChild(img); } };
-    img.src = URL.createObjectURL(blob);
-    if (zoom > 1) {                       // zoom manual: desplazamiento libre
-      img.style.width = cssW + 'px'; img.style.height = 'auto'; img.style.objectFit = 'fill';
-      img.style.maxWidth = 'none'; img.style.maxHeight = 'none';
-      cell.style.overflow = 'auto';
-    } else if (R.spread) {                // doble página: hoja entera centrada
-      img.style.width = 'auto'; img.style.height = 'auto'; img.style.objectFit = 'contain';
-      img.style.maxWidth = '100%'; img.style.maxHeight = '100%';
-      cell.style.overflow = 'hidden';
-    } else {                              // una hoja: al ancho + scroll vertical
-      img.style.width = '100%'; img.style.height = 'auto'; img.style.objectFit = 'fill';
-      img.style.maxWidth = 'none'; img.style.maxHeight = 'none';
-      cell.style.overflowX = 'hidden'; cell.style.overflowY = 'auto';
-    }
+
+    // Recuadro visible = contenido llenando el ancho; se desplaza en vertical.
+    const clip = document.createElement('div');
+    clip.style.cssText = `position:relative;width:100%;height:${ch * displayScale}px;overflow:hidden;margin:0 auto;`;
+    canvas.style.cssText = `position:absolute;left:${-cx * displayScale}px;top:${-cy * displayScale}px;width:${vp0.width * displayScale}px;height:auto;`;
+    clip.appendChild(canvas);
+    cell.innerHTML = ''; cell.appendChild(clip);
+    cell.style.overflowX = 'hidden'; cell.style.overflowY = 'auto';
   } catch (e) { R.rendered.delete(i); cell.innerHTML = '<div class="muted center" style="margin:auto;font-size:12px">No se pudo mostrar esta página</div>'; }
 }
 function pdfZoomSheet() {
