@@ -453,14 +453,21 @@ function setupMediaPaged(progress, renderCell) {
   R.rendered = new Set();
   R.renderCell = renderCell;
   const applySpread = () => {
-    const sp = isLandscape();
+    const sp = false;   // siempre UNA sola página (también en horizontal, más grande)
     if (sp !== R.spread) { R.rendered = new Set(); content.querySelectorAll('.rpage').forEach((c) => c.innerHTML = ''); }
     R.spread = sp;
     content.classList.toggle('spread', sp);
     document.getElementById('rBook')?.classList.toggle('spread', sp);
     if (sp && R.page % 2 === 1) R.page--;   // alinea a página izquierda
   };
-  const layout = () => { R.pageW = hostEl.clientWidth; applySpread(); setPageTransform(content, R.page); ensureCells(); updateProgressUI(); };
+  const layout = () => {
+    const newW = hostEl.clientWidth;
+    const widthChanged = Math.abs(newW - (R.pageW || 0)) > 2;
+    R.pageW = newW; applySpread();
+    // al girar / cambiar de ancho, re-renderiza las hojas al nuevo tamaño
+    if (widthChanged) { R.rendered = new Set(); content.querySelectorAll('.rpage').forEach((c) => c.innerHTML = ''); }
+    setPageTransform(content, R.page); ensureCells(); updateProgressUI();
+  };
   // Carrusel: cada página es una capa absoluta (a pantalla completa, o mitad en doble página).
   for (let i = 0; i < R.totalPages; i++) {
     const cell = document.createElement('div'); cell.className = 'rpage'; cell.dataset.i = i;
