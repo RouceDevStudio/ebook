@@ -27,7 +27,7 @@ export async function render(container, App) {
         ${['sepia','white','gray','black','amoled'].map((t) => `<option value="${t}" ${settings.get('readerTheme')===t?'selected':''}>${ {sepia:'Sepia',white:'Blanco',gray:'Gris',black:'Negro',amoled:'AMOLED'}[t]}</option>`).join('')}</select></div>
       <div class="field"><label>Tamaño de letra · <span id="fsV">${settings.get('fontSize')}px</span></label><input type="range" id="setFs" min="12" max="34" value="${settings.get('fontSize')}"></div>
       <div class="field"><label>Animación de página</label><select id="setAnim">
-        ${[['realistic','Libro real'],['slide','Deslizar'],['scroll','Continuo'],['none','Ninguna']].map(([v,l]) => `<option value="${v}" ${settings.get('pageAnimation')===v?'selected':''}>${l}</option>`).join('')}</select></div>
+        ${[['curl','Pliegue de esquina'],['realistic','Libro real (giro)'],['slide','Deslizar'],['scroll','Continuo'],['none','Ninguna']].map(([v,l]) => `<option value="${v}" ${settings.get('pageAnimation')===v?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="field"><label>Orientación</label><select id="setOrient">
         ${[['portrait','Vertical (bloqueada)'],['auto','Automática'],['landscape','Horizontal']].map(([v,l]) => `<option value="${v}" ${settings.get('orientation')===v?'selected':''}>${l}</option>`).join('')}</select></div>
       ${toggleRow('tapZones', 'Zonas táctiles', 'Toca los bordes para pasar página')}

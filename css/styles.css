@@ -586,6 +586,28 @@ input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: none;
 .page-flip .pf-face { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; padding: 0; }
 .page-flip .pf-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0) 60%, rgba(0,0,0,.18)); opacity: 0; }
 
+/* ── Page-curl: pliegue de esquina tipo libro real (aprox. CSS) ── */
+.page-curl { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.page-curl .pc-page {
+  position: absolute; inset: 0; overflow: hidden;
+  background: var(--r-paper, var(--r-bg)); will-change: clip-path, filter;
+}
+.page-curl .pc-page > * { position: absolute; inset: 0; }
+.page-curl .pc-fold {
+  position: absolute; inset: 0; overflow: hidden; transform-origin: 0 0;
+  background: var(--r-paper, var(--r-bg)); will-change: transform, clip-path;
+  box-shadow: 0 0 18px rgba(0,0,0,.35);
+}
+/* Reverso: contenido en espejo y tenue (traspaso de tinta) */
+.page-curl .pc-fold-inner { position: absolute; inset: 0; opacity: .6; filter: brightness(.88) contrast(.95); }
+.page-curl .pc-fold-inner > * { position: absolute; inset: 0; }
+/* Brillo/curvatura del papel plegado */
+.page-curl .pc-fold-sheen {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.08) 30%, rgba(0,0,0,.06) 62%, rgba(0,0,0,.22) 100%);
+}
+@media (prefers-reduced-motion: reduce) { .page-curl { display: none; } }
+
 /* Reader chrome (top/bottom bars) */
 .reader-chrome { position: absolute; left: 0; right: 0; z-index: 10; transition: transform .34s var(--ease), opacity .34s; }
 .reader-top { top: 0; padding: calc(var(--safe-top) + 8px) 6px 10px; display: flex; align-items: center; gap: 4px;
