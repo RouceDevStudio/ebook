@@ -935,3 +935,14 @@ body[data-theme="dark"], body[data-theme="amoled"] { --text-faint: #7c7767; }
 .reader-content.media.spread .rpage canvas {
   width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain;
 }
+/* Esqueleto de carga: latido calmado del papel, nunca un blanco brusco */
+.reader-content.media .rpage .rskel {
+  position: absolute; inset: 0; border: 0;
+  background: linear-gradient(100deg,
+    var(--r-bg) 30%,
+    color-mix(in srgb, var(--r-fg) 7%, var(--r-bg)) 50%,
+    var(--r-bg) 70%);
+  background-size: 220% 100%; animation: rshimmer 1.25s ease-in-out infinite;
+}
+@keyframes rshimmer { 0% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
+@media (prefers-reduced-motion: reduce) { .reader-content.media .rpage .rskel { animation: none; } }

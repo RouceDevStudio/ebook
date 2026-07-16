@@ -545,7 +545,8 @@ function detectContentBox(canvas) {
 async function renderPdfCell(i) {
   const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]');
   if (!cell) return;
-  if (!cell.querySelector('canvas')) cell.innerHTML = '<div class="spinner"></div>';
+  // Esqueleto calmado (nunca un blanco brusco) mientras se prepara la página.
+  if (!cell.querySelector('img')) cell.innerHTML = '<div class="rskel"></div>';
   try {
     const hostEl = document.getElementById('rHost');
     const pw = (R.pageW || hostEl?.clientWidth || 400);
@@ -558,15 +559,18 @@ async function renderPdfCell(i) {
     //    detección del recuadro de contenido, para que el TEXTO llene el ancho.
     let box = (R._trimBoxes ||= {})[i];
     if (!box) {
-      const detS = 520 / vp0.width;
+      const detS = 500 / vp0.width;
       const dvp = page.getViewport({ scale: detS });
       const dc = document.createElement('canvas');
       dc.width = Math.max(1, Math.round(dvp.width)); dc.height = Math.max(1, Math.round(dvp.height));
-      await page.render({ canvasContext: dc.getContext('2d', { willReadFrequently: true }), viewport: dvp }).promise;
+      const dctx = dc.getContext('2d', { willReadFrequently: true });
+      dctx.fillStyle = '#fff'; dctx.fillRect(0, 0, dc.width, dc.height);   // evita fondo transparente
+      await page.render({ canvasContext: dctx, viewport: dvp }).promise;
       box = detectContentBox(dc) || { x: 0, y: 0, w: 1, h: 1 };
       // si el recorte es minúsculo (falso positivo), usa la página entera
-      if (box.w < 0.4 || box.h < 0.2) box = { x: 0, y: 0, w: 1, h: 1 };
+      if (box.w < 0.4 || box.h < 0.15) box = { x: 0, y: 0, w: 1, h: 1 };
       R._trimBoxes[i] = box;
+      dc.width = dc.height = 0;                 // libera el lienzo de detección
     }
     const cx = box.x * vp0.width, cy = box.y * vp0.height;
     const cw = box.w * vp0.width, ch = box.h * vp0.height;
@@ -580,16 +584,26 @@ async function renderPdfCell(i) {
     const vp = page.getViewport({ scale: renderScale });
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(vp.width)); canvas.height = Math.max(1, Math.round(vp.height));
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-    if (!R || !document.querySelector('#rContent .rpage[data-i="' + i + '"]')) return; // lector cerrado
+    const cctx = canvas.getContext('2d');
+    cctx.fillStyle = '#fff'; cctx.fillRect(0, 0, canvas.width, canvas.height);   // sin transparencias → sin negro en JPEG
+    await page.render({ canvasContext: cctx, viewport: vp }).promise;
+    // A imagen comprimida: memoria ligera (clave en móviles con PDF grandes).
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
+    canvas.width = canvas.height = 0;           // libera el lienzo grande de inmediato
+    if (!R || !blob || !document.querySelector('#rContent .rpage[data-i="' + i + '"]')) return; // lector cerrado
 
     // Recuadro visible = contenido llenando el ancho; se desplaza en vertical.
     const clip = document.createElement('div');
     clip.style.cssText = `position:relative;width:100%;height:${ch * displayScale}px;overflow:hidden;margin:0 auto;`;
-    canvas.style.cssText = `position:absolute;left:${-cx * displayScale}px;top:${-cy * displayScale}px;width:${vp0.width * displayScale}px;height:auto;`;
-    clip.appendChild(canvas);
-    cell.innerHTML = ''; cell.appendChild(clip);
-    cell.style.overflowX = 'hidden'; cell.style.overflowY = 'auto';
+    const img = new Image();
+    img.decoding = 'async';
+    img.style.cssText = `position:absolute;left:${-cx * displayScale}px;top:${-cy * displayScale}px;width:${vp0.width * displayScale}px;height:auto;`;
+    img.onload = () => {
+      if (!cell.isConnected) { URL.revokeObjectURL(img.src); return; }
+      clip.appendChild(img); cell.innerHTML = ''; cell.appendChild(clip);
+      cell.style.overflowX = 'hidden'; cell.style.overflowY = 'auto';
+    };
+    img.src = URL.createObjectURL(blob);
   } catch (e) { R.rendered.delete(i); cell.innerHTML = '<div class="muted center" style="margin:auto;font-size:12px">No se pudo mostrar esta página</div>'; }
 }
 function pdfZoomSheet() {
