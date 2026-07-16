@@ -36,7 +36,7 @@ export async function renderNotesPanel(container, R, onJump) {
   container.querySelector('#expNotes').onclick = () => exportNotes(R.book, notes);
 }
 
-function exportNotes(book, notes) {
+export function exportNotes(book, notes) {
   let md = `# Notas de «${book.title}»\n\n_${book.author || ''}_\n\n`;
   notes.filter((n) => n.type === 'highlight').forEach((n) => {
     md += `> ${n.quote}\n`;
