@@ -210,6 +210,9 @@ function setupPaged(hostEl, content, progress) {
     // recalcula tras layout
     requestAnimationFrame(() => {
       R.totalPages = Math.max(1, Math.round(content.scrollWidth / W));
+      // Libros enormes: la animación de pliegue clona todo el DOM en cada giro
+      // y congelaría la pestaña. En ese caso se usa "deslizar" (no clona).
+      R._heavyReflow = R.totalPages > 200 || content.querySelectorAll('p').length > 2000;
       // restaura por porcentaje
       const pct = progress.percent || 0;
       R.page = Math.min(R.totalPages - 1, Math.round(pct * (R.totalPages - 1)));
@@ -253,7 +256,9 @@ function goToPage(page, animate = 1, dir = 1) {
   if (page === R.page && animate) return;
   if (page !== R.page) R.vScroll = 0;   // cada página empieza arriba (scroll vertical)
   // En doble página, el giro 3D de una sola hoja no aplica: usamos deslizamiento.
-  const anim = (R.mediaPaged && R.spread) ? 'slide' : R.settings.pageAnimation;
+  // En libros de reflujo enormes, también deslizamos (el pliegue clonaría todo
+  // el DOM y congelaría la app).
+  const anim = ((R.mediaPaged && R.spread) || (!R.mediaPaged && R._heavyReflow)) ? 'slide' : R.settings.pageAnimation;
   if (!animate || anim === 'none') { R.page = page; content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); setPageTransform(content, page); afterPageChange(); return; }
   if (anim === 'slide') {
     R.page = page;
