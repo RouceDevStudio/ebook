@@ -9,6 +9,10 @@ import { settings } from './db.js';
 import { searchOnline } from './covers.js';
 import { STATUS } from './models.js';
 
+// Coral se conecta SOLO, sin que el usuario configure nada (como UpGames).
+// El usuario puede sobrescribir con su propio Nexus en Ajustes → Coral.
+export const DEFAULT_CORAL_URL = 'https://nexus-production-781b.up.railway.app';
+
 const STOP = {
   es: ['de','la','que','el','en','y','los','las','del','se','por','con','una','para','como'],
   en: ['the','and','of','to','in','is','that','for','with','was','you','this','have'],
@@ -19,7 +23,11 @@ const STOP = {
 };
 
 export const coral = {
-  configured() { return !!(settings.get('coralUrl') || '').trim(); },
+  // URL efectiva del cerebro: la del usuario si la puso, si no la de por defecto.
+  baseUrl() { return ((settings.get('coralUrl') || '').trim() || DEFAULT_CORAL_URL).replace(/\/$/, ''); },
+  // Siempre hay cerebro configurado (autoconexión); solo se desactiva si el
+  // usuario borra la URL a propósito con la palabra "off".
+  configured() { return this.baseUrl() !== '' && (settings.get('coralUrl') || '').trim().toLowerCase() !== 'off'; },
   online() { return navigator.onLine; },
   status() {
     if (this.configured() && this.online()) return { level: 'brain', label: 'Coral conectado' };
@@ -54,7 +62,8 @@ export const coral = {
 
   /* ── Llama al cerebro de Coral (Nexus) ── */
   async callBrain(payload) {
-    const base = (settings.get('coralUrl') || '').replace(/\/$/, '');
+    if (!this.configured()) return null;
+    const base = this.baseUrl();
     if (!base) return null;
     const headers = { 'Content-Type': 'application/json' };
     const token = settings.get('coralToken'); if (token) headers['Authorization'] = 'Bearer ' + token;

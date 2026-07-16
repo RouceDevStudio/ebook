@@ -3,7 +3,7 @@
 import { settings, db } from './db.js';
 import { storage } from './storage.js';
 import * as models from './models.js';
-import { coral } from './coral.js';
+import { coral, DEFAULT_CORAL_URL } from './coral.js';
 import { toast } from './toast.js';
 
 export async function render(container, App) {
@@ -38,9 +38,9 @@ export async function render(container, App) {
     <div class="card">
       <div class="coral-say" style="box-shadow:none;border:none;padding:0 0 12px">
         <div class="av"><svg viewBox="0 0 24 24"><path d="M12 3c4.5 0 8 3 8 7 0 2.5-1.6 4-3 5-1 .7-1 2-1 3H8c0-1 0-2.3-1-3-1.4-1-3-2.5-3-5 0-4 3.5-7 8-7z"/></svg></div>
-        <div class="txt">${st.label}. Conecta tu servidor Coral (Nexus) para que complete metadatos con IA.</div>
+        <div class="txt">${st.label}. Coral se conecta <b>automáticamente</b> — no tienes que configurar nada. Completa metadatos y portadas con IA y organiza tu biblioteca.</div>
       </div>
-      <div class="field"><label>URL de tu Coral (Nexus)</label><input id="setCoralUrl" placeholder="https://tu-nexus.up.railway.app" value="${attr(settings.get('coralUrl'))}"></div>
+      <div class="field"><label>Servidor Coral <span class="muted" style="font-weight:400">· avanzado (opcional)</span></label><input id="setCoralUrl" placeholder="${attr(DEFAULT_CORAL_URL)} · automático" value="${attr(settings.get('coralUrl'))}"><p class="muted" style="font-size:12px;margin:6px 2px 0">Déjalo vacío para usar Coral automáticamente. Pon tu propio Nexus para usarlo, o escribe <b>off</b> para desconectar.</p></div>
       <div class="field"><label>Token (opcional)</label><input id="setCoralToken" placeholder="Bearer token si tu Coral lo pide" value="${attr(settings.get('coralToken'))}"></div>
       <div class="row"><button class="btn ghost" id="testCoral">Probar conexión</button><button class="btn" id="saveCoral">Guardar</button></div>
       ${toggleRow('autoCovers', 'Carátulas automáticas', 'Descarga portadas al importar')}
@@ -93,10 +93,11 @@ export async function render(container, App) {
   // Coral
   container.querySelector('#saveCoral').onclick = () => { settings.set('coralUrl', container.querySelector('#setCoralUrl').value.trim()); settings.set('coralToken', container.querySelector('#setCoralToken').value.trim()); toast('Conexión Coral guardada'); render(container, App); };
   container.querySelector('#testCoral').onclick = async () => {
-    const url = container.querySelector('#setCoralUrl').value.trim();
-    if (!url) return toast('Escribe la URL de tu Coral');
+    const typed = container.querySelector('#setCoralUrl').value.trim();
+    const url = (typed && typed.toLowerCase() !== 'off') ? typed.replace(/\/$/, '') : (typed.toLowerCase() === 'off' ? '' : coral.baseUrl());
+    if (!url) return toast('Coral está desconectado (escrito "off")');
     const t = toast('Probando…', { duration: 15000, icon: '<div class="spinner"></div>' });
-    try { const r = await fetch(url.replace(/\/$/, '') + '/health'); t.remove(); toast(r.ok ? '✅ Coral responde' : `Responde ${r.status}`); }
+    try { const r = await fetch(url + '/health'); t.remove(); toast(r.ok ? '✅ Coral responde' : `Responde ${r.status}`); }
     catch (e) { t.remove(); toast('No se pudo conectar: ' + e.message); }
   };
   // Fuentes
