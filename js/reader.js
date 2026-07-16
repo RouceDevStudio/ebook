@@ -201,7 +201,9 @@ function setupPaged(hostEl, content, progress) {
       content.style.columnGap = (2 * m) + 'px';
       content.style.columnWidth = ((W - 2 * pad - 2 * m) / 2) + 'px';
     } else {
-      content.style.columnGap = '0px';
+      // Una columna por pantalla: el hueco = 2·pad para que el PASO entre
+      // columnas (colW + gap) sea exactamente W y NO se cuele la siguiente.
+      content.style.columnGap = (2 * pad) + 'px';
       content.style.columnWidth = (W - 2 * pad) + 'px';
     }
     content.style.setProperty('--r-margin', '0px');
@@ -236,7 +238,10 @@ function setPageTransform(content, page) {
     // pantalla completa o media en doble página): siempre 100% por ranura.
     content.querySelectorAll('.rpage').forEach((c) => { c.style.transform = `translateX(${(+c.dataset.i - page) * 100}%)`; });
   } else {
-    content.style.transform = `translateX(${-page * R.pageW}px)`;
+    // translateZ(0) fuerza una capa GPU: evita el bug de Chromium por el que
+    // las columnas CSS trasladadas se posicionan pero NO se re-pintan (páginas
+    // en blanco al avanzar en el reflujo).
+    content.style.transform = `translateX(${-page * R.pageW}px) translateZ(0)`;
   }
 }
 function setMediaTransition(t) { document.querySelectorAll('#rContent .rpage').forEach((c) => { c.style.transition = t; }); }
@@ -565,37 +570,57 @@ function ensureCells() {
   }
 }
 
-/* ═════════ Extracción de texto de un PDF → párrafos (para reflujo) ═════════ */
+/* ═════════ Extracción de texto de un PDF → párrafos (para reflujo) ═════════
+   Dos pasadas: 1) reconstruye líneas por página; 2) descarta encabezados/pies
+   repetidos (running heads, números, URLs) y arma párrafos en flujo continuo. */
 async function extractPdfText(pdf, numPages) {
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  let all = '';
-  let totalChars = 0;
+  const isNoise = (t) =>
+    /^\d{1,4}$/.test(t) ||                                  // número de página suelto
+    /^(https?:\/\/|www\.)\S+$/i.test(t) ||                  // URL de pie
+    (/bibliotecadigital|ilce\.edu/i.test(t) && t.length < 60);
+
+  // ── Pasada 1: líneas por página ──
+  const pages = [];
+  const freq = Object.create(null);
   for (let i = 1; i <= numPages; i++) {
     let items;
     try { const page = await pdf.getPage(i); items = (await page.getTextContent()).items; }
-    catch (_) { continue; }
-    if (!items || !items.length) continue;
-    const pos = items
+    catch (_) { pages.push([]); continue; }
+    const pos = (items || [])
       .filter((it) => typeof it.str === 'string')
       .map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], h: Math.abs(it.transform[3] || it.height || 12) }));
-    if (!pos.length) continue;
+    if (!pos.length) { pages.push([]); continue; }
     pos.sort((a, b) => (Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x));
-    // agrupar en líneas por proximidad vertical
     const lines = []; let cur = null, lastY = null;
     for (const it of pos) {
       if (cur && lastY != null && Math.abs(it.y - lastY) <= Math.max(3, it.h * 0.6)) cur.parts.push(it.str);
       else { cur = { y: it.y, x0: it.x, h: it.h, parts: [it.str] }; lines.push(cur); }
       lastY = it.y;
     }
-    const L = lines.map((l) => ({ y: l.y, x0: l.x0, h: l.h, text: l.parts.join('').replace(/\s+/g, ' ').trim() })).filter((l) => l.text);
+    const L = lines
+      .map((l) => ({ y: l.y, x0: l.x0, h: l.h, text: l.parts.join('').replace(/\s+/g, ' ').trim() }))
+      .filter((l) => l.text && !isNoise(l.text));
+    for (const l of L) freq[l.text] = (freq[l.text] || 0) + 1;
+    pages.push(L);
+  }
+
+  // Encabezados/pies repetidos (aparecen en ≥40% de las páginas)
+  const repThreshold = Math.max(3, Math.floor(numPages * 0.4));
+  const isRunning = (t) => t.length < 80 && freq[t] >= repThreshold;
+
+  // ── Pasada 2: párrafos en flujo continuo ──
+  let all = '', totalChars = 0;
+  for (const L0 of pages) {
+    const L = L0.filter((l) => !isRunning(l.text));
     if (!L.length) continue;
     const leftMin = Math.min(...L.map((l) => l.x0));
     let buf = '';
     const flush = () => { if (buf.trim()) { all += `<p>${esc(buf.trim())}</p>`; totalChars += buf.length; buf = ''; } };
     for (let k = 0; k < L.length; k++) {
       const l = L[k], prev = L[k - 1];
-      const bigGap = prev && (prev.y - l.y) > l.h * 1.8;      // hueco vertical = nuevo párrafo
-      const indent = (l.x0 - leftMin) > l.h * 0.9;            // sangría = nuevo párrafo
+      const bigGap = prev && (prev.y - l.y) > l.h * 1.8;     // hueco vertical → nuevo párrafo
+      const indent = (l.x0 - leftMin) > l.h * 0.9;           // sangría → nuevo párrafo
       if (buf && (bigGap || indent)) flush();
       if (buf && /[-­]$/.test(buf)) buf = buf.replace(/[-­]$/, '') + l.text;  // une palabra cortada
       else buf = buf ? buf + ' ' + l.text : l.text;
