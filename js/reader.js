@@ -651,7 +651,11 @@ async function extractPdfText(pdf, numPages) {
     }
     flush();
   }
-  if (totalChars < numPages * 40) return null;               // PDF escaneado / sin texto útil
+  // ¿Merece la pena el reflujo? Se cuentan LETRAS reales (no espacios ni
+  // símbolos). Umbral más permisivo: más libros se transcriben; solo los
+  // escaneados / sin texto extraíble se quedan como imagen.
+  const letters = ((all.replace(/<[^>]+>/g, ' ')).match(/[\p{L}]/gu) || []).length;
+  if (letters < Math.max(200, numPages * 12)) return null;    // PDF escaneado / sin texto útil
   return [{ id: 'pdf', html: all }];
 }
 
