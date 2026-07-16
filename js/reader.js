@@ -510,26 +510,30 @@ async function renderPdfCell(i) {
   try {
     const hostEl = document.getElementById('rHost');
     const slotW = (R.pageW || hostEl?.clientWidth || 400) / (R.spread ? 2 : 1);
-    const pw = slotW - 24;                                     // menos padding lateral
-    const ph = (hostEl?.clientHeight || 600) - 40;             // menos padding vertical
+    const pw = slotW;                                          // llenar TODA la ranura
+    const ph = (hostEl?.clientHeight || 600);
     const zoom = R.zoom || 1;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const page = await R.pdf.getPage(i + 1);
     const vp0 = page.getViewport({ scale: 1 });
-    // "contain": la página COMPLETA cabe en pantalla, con su proporción real
-    const containFit = Math.min(pw / vp0.width, ph / vp0.height);
-    const vp = page.getViewport({ scale: containFit * zoom * dpr });
+    // "cover": la página LLENA la pantalla (se recorta lo que sobra)
+    const coverFit = Math.max(pw / vp0.width, ph / vp0.height);
+    let renderScale = coverFit * zoom * dpr;
+    // límite de memoria: ninguna dimensión del lienzo supera 4096 px
+    const maxDim = 4096, wPx = vp0.width * renderScale, hPx = vp0.height * renderScale;
+    if (Math.max(wPx, hPx) > maxDim) renderScale *= maxDim / Math.max(wPx, hPx);
+    const vp = page.getViewport({ scale: renderScale });
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(vp.width)); canvas.height = Math.max(1, Math.round(vp.height));
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
     const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
     if (!R || !document.querySelector('#rContent .rpage[data-i="' + i + '"]')) return; // lector cerrado
-    const cssW = Math.round(vp0.width * containFit * zoom); // tamaño en px CSS
+    const cssW = Math.round(vp0.width * coverFit * zoom); // tamaño en px CSS
     const img = new Image();
     img.onload = () => { if (cell.isConnected) { cell.innerHTML = ''; cell.appendChild(img); } };
     img.src = URL.createObjectURL(blob);
-    if (zoom > 1) { img.style.width = cssW + 'px'; img.style.height = 'auto'; img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; cell.style.overflow = 'auto'; }
-    else { img.style.width = 'auto'; img.style.height = 'auto'; img.style.maxWidth = '100%'; img.style.maxHeight = '100%'; cell.style.overflow = 'hidden'; }
+    if (zoom > 1) { img.style.width = cssW + 'px'; img.style.height = 'auto'; img.style.objectFit = 'fill'; img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; cell.style.overflow = 'auto'; }
+    else { img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'cover'; img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; cell.style.overflow = 'hidden'; }
   } catch (e) { R.rendered.delete(i); cell.innerHTML = '<div class="muted center" style="margin:auto;font-size:12px">No se pudo mostrar esta página</div>'; }
 }
 function pdfZoomSheet() {
