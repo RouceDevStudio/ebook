@@ -30,6 +30,7 @@ export async function render(container, App) {
         ${[['curl','Pliegue de esquina'],['realistic','Libro real (giro)'],['slide','Deslizar'],['scroll','Continuo'],['none','Ninguna']].map(([v,l]) => `<option value="${v}" ${settings.get('pageAnimation')===v?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="field"><label>Orientación</label><select id="setOrient">
         ${[['portrait','Vertical (bloqueada)'],['auto','Automática'],['landscape','Horizontal']].map(([v,l]) => `<option value="${v}" ${settings.get('orientation')===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      ${toggleRow('pdfReflow', 'Ajustar texto en PDF', 'Maqueta el PDF como ebook: llena la pantalla y letra ajustable (los escaneados se ven como imagen)')}
       ${toggleRow('tapZones', 'Zonas táctiles', 'Toca los bordes para pasar página')}
       ${toggleRow('keepScreenOn', 'Mantener pantalla encendida', 'Evita que se apague mientras lees')}
     </div>
