@@ -906,3 +906,31 @@ input[type="range"]::-moz-range-thumb { background: var(--accent); }
 :root { --text-faint: #8f897a; }
 body[data-theme="dark"], body[data-theme="amoled"] { --text-faint: #7c7767; }
 @media (prefers-color-scheme: dark) { body[data-theme="system"] { --text-faint: #7c7767; } }
+
+/* ══════════════════════════════════════════════════════════════
+   Lector PDF / cómic — LLENAR la pantalla (recortar), sin escritorio
+   Vertical: una hoja a pantalla completa. Horizontal: doble página.
+   El lector de texto (EPUB) conserva su hoja sobre escritorio.
+   ══════════════════════════════════════════════════════════════ */
+.reader-content.media .rpage {
+  padding: 0;                       /* sin margen de escritorio */
+  background: var(--r-bg);
+}
+.reader-content.media .rpage img,
+.reader-content.media .rpage canvas {
+  width: 100%; height: 100%;
+  max-width: none; max-height: none;
+  object-fit: cover;                /* recorta lo justo para llenar */
+  margin: 0; border-radius: 0;
+  box-shadow: none; background: var(--r-bg);
+}
+/* Con zoom (>100%) se pasa a desplazamiento libre: no recortar */
+.reader-content.media .rpage[style*="overflow: auto"] img { object-fit: fill; }
+
+/* Doble página en horizontal: cada hoja llena su mitad y se junta al lomo */
+.reader-content.media.spread .rpage { width: 50%; right: auto; padding: 0; }
+.reader-content.media.spread .rpage[data-i]:nth-child(odd),
+.reader-content.media.spread .rpage[data-i]:nth-child(even) { padding: 0; }
+
+/* Fondo del lector de medios: plano y calmado (sin degradado de escritorio) */
+.reader-content.media { padding: 0; }
