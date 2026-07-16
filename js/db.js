@@ -75,7 +75,7 @@ const _defaults = {
   wordSpacing: 0,
   letterSpacing: 0,
   textAlign: 'justify',
-  paragraphSpace: 1,
+  paragraphSpace: 0.6,   // hueco entre párrafos (em) — más compacto, menos espacio muerto
   textIndent: 0,
   pageAnimation: 'curl',   // curl|realistic|slide|scroll|none
   pdfReflow: true,         // PDF como texto reflujo (llena la pantalla) vs imagen

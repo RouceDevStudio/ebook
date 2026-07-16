@@ -189,7 +189,7 @@ function setupPaged(hostEl, content, progress) {
   const layout = () => {
     const W = hostEl.clientWidth;
     const m = R.settings.margin;
-    const two = isLandscape();                    // horizontal → libro abierto (dos hojas)
+    const two = false;                            // una sola página también en horizontal (a petición)
     const desk = getDeskMargin(hostEl);           // margen de escritorio alrededor del libro
     const pad = desk + m;                          // borde de hoja + margen de texto
     content.style.width = W + 'px';
