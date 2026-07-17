@@ -239,11 +239,11 @@ function setPageTransform(content, page) {
     // pantalla completa o media en doble página): siempre 100% por ranura.
     content.querySelectorAll('.rpage').forEach((c) => { c.style.transform = `translateX(${(+c.dataset.i - page) * 100}%)`; });
   } else {
-    // translateZ(0) fuerza una capa GPU: evita el bug de Chromium por el que
-    // las columnas CSS trasladadas se posicionan pero NO se re-pintan (páginas
-    // en blanco al avanzar en el reflujo). translateY = scroll vertical de la
-    // página alta en horizontal.
-    content.style.transform = `translateX(${-page * R.pageW}px) translateY(${-(R.vScroll || 0)}px) translateZ(0)`;
+    // Sin translateZ(0): NO se promueve todo el libro a una capa GPU gigante
+    // (eso re-rasterizaba en cada giro y hacía lentísimos los libros enormes).
+    // El re-pintado de columnas ya lo garantiza overflow:visible + repaint.
+    // translateY = scroll vertical de la página alta en horizontal.
+    content.style.transform = `translateX(${-page * R.pageW}px) translateY(${-(R.vScroll || 0)}px)`;
   }
 }
 function setMediaTransition(t) { document.querySelectorAll('#rContent .rpage').forEach((c) => { c.style.transition = t; }); }
@@ -262,7 +262,8 @@ function goToPage(page, animate = 1, dir = 1) {
   if (!animate || anim === 'none') { R.page = page; content.style.transition = 'none'; if (R.mediaPaged) setMediaTransition('none'); setPageTransform(content, page); afterPageChange(); return; }
   if (anim === 'slide') {
     R.page = page;
-    const tr = 'transform .32s cubic-bezier(.22,1,.36,1)';
+    // Libros enormes: deslizamiento más corto y ágil (se siente instantáneo).
+    const tr = (!R.mediaPaged && R._heavyReflow) ? 'transform .18s cubic-bezier(.22,1,.36,1)' : 'transform .32s cubic-bezier(.22,1,.36,1)';
     content.style.transition = tr; if (R.mediaPaged) setMediaTransition(tr);
     setPageTransform(content, page); afterPageChange(); return;
   }
@@ -436,7 +437,7 @@ function bindReaderGestures(hostEl, isScroll) {
   const canVScroll = () => !isScroll && !R.mediaPaged && (R.vMax || 0) > 0;
   const applyVScroll = () => {
     const content = document.getElementById('rContent');
-    if (content) content.style.transform = `translateX(${-R.page * R.pageW}px) translateY(${-(R.vScroll || 0)}px) translateZ(0)`;
+    if (content) content.style.transform = `translateX(${-R.page * R.pageW}px) translateY(${-(R.vScroll || 0)}px)`;
   };
   hostEl.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; lastY = t.clientY; moved = false; vDrag = false; t0 = Date.now(); }, { passive: true });
   hostEl.addEventListener('touchmove', (e) => {
