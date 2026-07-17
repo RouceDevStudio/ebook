@@ -410,6 +410,7 @@ function updateProgressUI() {
 }
 
 function rebuildReflow(progress) {
+  if (R.mediaPaged) { R._reRender && R._reRender(); return; }  // virtual/media: re-render propio
   // re-aplica ajustes y recalcula manteniendo porcentaje
   const content = document.getElementById('rContent');
   if (!content) return;
@@ -639,14 +640,14 @@ async function extractPdfText(pdf, numPages) {
   const repThreshold = Math.max(3, Math.floor(numPages * 0.4));
   const isRunning = (t) => t.length < 80 && freq[t] >= repThreshold;
 
-  // ── Pasada 2: párrafos en flujo continuo ──
-  let all = '', totalChars = 0;
+  // ── Pasada 2: párrafos en flujo continuo (array de párrafos escapados) ──
+  const paras = [];
   for (const L0 of pages) {
     const L = L0.filter((l) => !isRunning(l.text));
     if (!L.length) continue;
     const leftMin = Math.min(...L.map((l) => l.x0));
     let buf = '';
-    const flush = () => { if (buf.trim()) { all += `<p>${esc(buf.trim())}</p>`; totalChars += buf.length; buf = ''; } };
+    const flush = () => { if (buf.trim()) { paras.push(esc(buf.trim())); buf = ''; } };
     for (let k = 0; k < L.length; k++) {
       const l = L[k], prev = L[k - 1];
       const bigGap = prev && (prev.y - l.y) > l.h * 1.8;     // hueco vertical → nuevo párrafo
@@ -657,12 +658,13 @@ async function extractPdfText(pdf, numPages) {
     }
     flush();
   }
+  const all = paras.map((t) => `<p>${t}</p>`).join('');
   // ¿Merece la pena el reflujo? Se cuentan LETRAS reales (no espacios ni
   // símbolos). Umbral más permisivo: más libros se transcriben; solo los
   // escaneados / sin texto extraíble se quedan como imagen.
-  const letters = ((all.replace(/<[^>]+>/g, ' ')).match(/[\p{L}]/gu) || []).length;
+  const letters = (paras.join(' ').match(/[\p{L}]/gu) || []).length;
   if (letters < Math.max(200, numPages * 12)) return null;    // PDF escaneado / sin texto útil
-  return [{ id: 'pdf', html: all }];
+  return paras;                                               // array de párrafos escapados
 }
 
 /* ═════════ Lector PDF (paginado) ═════════ */
@@ -674,14 +676,102 @@ async function buildPdfReader(progress) {
   // ajustable. Si no hay texto (escaneado), cae al render por página.
   if (settings.get('pdfReflow') !== false && !R._forcePdfImage) {
     const t = toast('Preparando texto…', { duration: 60000, icon: '<div class="spinner"></div>' });
-    let chapters = null;
-    try { chapters = await extractPdfText(doc.pdfDoc, doc.numPages); } catch (_) {}
+    let paras = null;
+    try { paras = await extractPdfText(doc.pdfDoc, doc.numPages); } catch (_) {}
     t.remove();
-    if (chapters) { R.doc.chapters = chapters; R.kind = 'pdf'; R.pdfReflow = true; buildReflowReader(progress); return; }
+    if (paras && paras.length) {
+      R.kind = 'pdf'; R.pdfReflow = true;
+      // Reflujo VIRTUALIZADO: solo se monta la ventana de páginas alrededor de
+      // la actual → abrir instantáneo, giros instantáneos, poca memoria, sea el
+      // libro del tamaño que sea.
+      setupVirtualReflow(progress, paras);
+      return;
+    }
     toast('Este PDF no tiene texto — se muestra como imagen');
   }
   setupMediaPaged(progress, renderPdfCell);
   R._toc = doc.toc;
+}
+
+/* ═════════ Reflujo VIRTUALIZADO (rápido a cualquier tamaño) ═════════
+   Pagina el texto una vez y monta en el DOM solo la ventana de páginas
+   alrededor de la actual (carrusel de celdas .rpage, como el visor de PDF).
+   Abrir/giros instantáneos y poca memoria aunque el libro sea gigantesco. */
+function setupVirtualReflow(progress, paras) {
+  const { host, book } = R;
+  host.innerHTML = `<div class="reader-page-host" id="rHost"><div class="reader-content virtual" id="rContent"></div></div>${chrome(book)}`;
+  const hostEl = document.getElementById('rHost');
+  const content = document.getElementById('rContent');
+  applyVars(content, R.settings);
+  content.style.setProperty('--r-margin', '0px');
+  content.style.position = 'absolute'; content.style.inset = '0'; content.style.overflow = 'visible';
+  R.mediaPaged = true; R._virtual = true; R._paras = paras; R.spread = false; R.zoom = 1;
+
+  const paginate = () => {
+    const W = hostEl.clientWidth, H = hostEl.clientHeight, m = R.settings.margin;
+    const cw = Math.max(80, W - 2 * m), ch = Math.max(80, H - 2 * m);
+    R._m = m; R._ch = ch; R.pageW = W;
+    const meas = document.createElement('div');
+    meas.className = 'reader-content';
+    meas.style.cssText = `position:absolute;left:-99999px;top:0;visibility:hidden;width:${cw}px;height:auto;padding:0;`;
+    applyVars(meas, R.settings);
+    meas.style.setProperty('--r-margin', '0px');
+    meas.style.columnWidth = 'auto'; meas.style.columnCount = '1';
+    meas.innerHTML = paras.map((p) => `<p>${p}</p>`).join('');
+    document.body.appendChild(meas);
+    const ps = meas.children, n = ps.length;
+    const tops = new Array(n), bots = new Array(n);
+    for (let i = 0; i < n; i++) { tops[i] = ps[i].offsetTop; bots[i] = tops[i] + ps[i].offsetHeight; }
+    const totalH = n ? bots[n - 1] : 0;
+    document.body.removeChild(meas);
+    // Paginación por POSICIÓN: cada página cubre [pg·ch, pg·ch+ch]. Un párrafo
+    // largo se reparte entre páginas (offY) sin perder texto.
+    const pages = []; const nPages = Math.max(1, Math.ceil(totalH / ch));
+    let pi = 0;
+    for (let pg = 0; pg < nPages; pg++) {
+      const y0 = pg * ch, y1 = y0 + ch;
+      while (pi < n - 1 && bots[pi] <= y0) pi++;
+      const start = pi;
+      const offY = Math.max(0, y0 - (tops[start] || 0));
+      let end = start; while (end < n && tops[end] < y1) end++;
+      pages.push({ start, off: offY, end: Math.max(end, start + 1) });
+    }
+    R._vpages = pages; R.totalPages = pages.length;
+  };
+  const buildCells = () => {
+    content.querySelectorAll('.rpage').forEach((c) => c.remove());
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < R.totalPages; i++) { const cell = document.createElement('div'); cell.className = 'rpage vtext'; cell.dataset.i = i; frag.appendChild(cell); }
+    content.appendChild(frag);
+    R.rendered = new Set();
+  };
+  R.renderCell = (i) => {
+    const cell = document.querySelector('#rContent .rpage[data-i="' + i + '"]'); if (!cell) return;
+    const pg = R._vpages[i]; if (!pg) return;
+    const inner = R._paras.slice(pg.start, pg.end).map((p) => `<p>${p}</p>`).join('');
+    cell.innerHTML = `<div class="vclip" style="padding:${R._m}px"><div class="vpage" style="transform:translateY(${-pg.off}px)">${inner}</div></div>`;
+  };
+  const reRender = debounce(() => {
+    const pct = currentPercent();
+    applyVars(content, R.settings);
+    paginate(); buildCells();
+    R.page = Math.min(R.totalPages - 1, Math.round(pct * (R.totalPages - 1)));
+    setPageTransform(content, R.page); ensureCells(); updateProgressUI();
+  }, 120);
+
+  paginate();
+  buildCells();
+  R.page = Math.min(R.totalPages - 1, Math.max(0, Math.round((progress.percent || 0) * (R.totalPages - 1))));
+  setPageTransform(content, R.page);
+  bindChrome(reRender);
+  bindReaderGestures(hostEl, false);
+  bindSlider(false, hostEl);
+  R.onPageChange = () => ensureCells();
+  R._resize = debounce(() => { reRender(); }, 250);
+  window.addEventListener('resize', R._resize);
+  ensureCells();
+  updateProgressUI();
+  startImmersive();
 }
 // Detecta el recuadro de CONTENIDO (recorta márgenes en blanco/transparentes).
 // Devuelve fracciones [0..1] de la página, o null si no se puede analizar.
@@ -1076,7 +1166,10 @@ function startTTS() {
   if (!('speechSynthesis' in window)) return toast('Tu navegador no soporta lectura en voz alta');
   const content = document.getElementById('rContent');
   let text = '';
-  if (content) { const secs = content.querySelectorAll('section'); const cid = currentChapterId(); const sec = content.querySelector(`[data-chapter="${cid}"]`) || secs[0]; text = (sec?.textContent || '').slice(0, 6000); }
+  if (R._virtual) {
+    const cell = document.querySelector('#rContent .rpage[data-i="' + R.page + '"]');
+    text = (cell?.textContent || '').slice(0, 6000);
+  } else if (content) { const secs = content.querySelectorAll('section'); const cid = currentChapterId(); const sec = content.querySelector(`[data-chapter="${cid}"]`) || secs[0]; text = (sec?.textContent || '').slice(0, 6000); }
   if (!text) return toast('Nada que leer aquí');
   const u = new SpeechSynthesisUtterance(text);
   u.rate = settings.get('ttsRate') || 1; u.lang = R.book.language || 'es';

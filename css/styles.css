@@ -1004,3 +1004,25 @@ body[data-theme="dark"], body[data-theme="amoled"] { --text-faint: #7c7767; }
 .r-menu-sheet { position: absolute; inset: 0; z-index: 120; display: flex; align-items: flex-end; justify-content: center; }
 .r-menu-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.4); animation: fade .25s; }
 .r-menu-sheet .sheet { position: relative; z-index: 1; width: 100%; max-width: 560px; max-height: 84%; overflow-y: auto; }
+
+/* ── Reflujo virtualizado: celdas de texto del carrusel ── */
+.reader-content.virtual { background: var(--r-bg); }
+.reader-content .rpage.vtext {
+  display: block; padding: 0; overflow: hidden; background: var(--r-bg);
+  align-items: initial; justify-content: initial;
+}
+.reader-content .rpage.vtext .vclip {
+  height: 100%; box-sizing: border-box; overflow: hidden;
+}
+.reader-content .rpage.vtext .vpage {
+  font-family: var(--r-font, "Literata", Georgia, serif);
+  font-size: var(--r-fs, 19px); line-height: var(--r-lh, 1.7);
+  text-align: var(--r-align, justify); letter-spacing: var(--r-ls, 0);
+  word-spacing: var(--r-ws, 0); color: var(--r-fg); hyphens: auto;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  will-change: transform;
+}
+.reader-content .rpage.vtext .vpage p {
+  margin: 0 0 var(--r-pspace, .6em); text-indent: var(--r-indent, 0);
+  overflow-wrap: break-word; orphans: 2; widows: 2;
+}
